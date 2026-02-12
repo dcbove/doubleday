@@ -14,3 +14,10 @@ module "s3" {
   project     = var.project
   environment = var.environment
 }
+
+module "glue" {
+  source                = "../../modules/glue"
+  project               = var.project
+  environment           = var.environment
+  lakehouse_bucket_name = module.s3.lakehouse_bucket_name
+}
