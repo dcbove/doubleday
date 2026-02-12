@@ -65,3 +65,31 @@ FROM doubleday_dev.bronze_statcast
 WHERE season = 2025
 GROUP BY pitch_type
 ```
+
+## Data: Silver Layer
+
+The silver layer is the canonical, typed source of truth. Data is stored as Apache Iceberg tables in Parquet format, partitioned by `(season, game_date)`. Deprecated columns from the bronze layer are dropped and all remaining columns are strongly typed.
+
+### Tables
+
+- **`silver_pitches`** — canonical pitch-by-pitch table. Supports idempotent loads via MERGE on `(game_pk, at_bat_number, pitch_number)`.
+- **`silver_pitches_staging`** — transient scratch table with the same schema. Used to stage one day's data at a time before merging into canonical.
+
+### Table creation
+
+Tables are created via Athena DDL, triggered automatically by `terraform apply` through `null_resource` provisioners. The SQL definitions live in:
+
+```
+sql/silver_pitches.sql
+sql/silver_pitches_staging.sql
+```
+
+Schema evolution (adding columns, changing types) should be done via Athena `ALTER TABLE` statements, not by modifying the Glue catalog directly — Iceberg manages its own metadata in S3.
+
+### S3 layout
+
+```
+s3://doubleday-<env>-lakehouse/silver/
+├── silver_pitches/            # Iceberg data + metadata
+└── silver_pitches_staging/    # Iceberg data + metadata
+```

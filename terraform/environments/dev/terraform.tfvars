@@ -1,3 +1,4 @@
-project     = "doubleday"
-environment = "dev"
-region      = "us-east-1"
+project               = "doubleday"
+environment           = "dev"
+region                = "us-east-1"
+athena_results_bucket = "appleforge-athena-query-results"

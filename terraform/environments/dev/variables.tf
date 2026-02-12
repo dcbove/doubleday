@@ -12,3 +12,8 @@ variable "region" {
   description = "AWS region"
   type        = string
 }
+
+variable "athena_results_bucket" {
+  description = "S3 bucket name for Athena query results"
+  type        = string
+}

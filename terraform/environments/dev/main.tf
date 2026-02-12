@@ -20,4 +20,5 @@ module "glue" {
   project               = var.project
   environment           = var.environment
   lakehouse_bucket_name = module.s3.lakehouse_bucket_name
+  athena_results_bucket = var.athena_results_bucket
 }
