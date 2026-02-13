@@ -7,6 +7,7 @@ canonical tables so that the Lambda runs against a known-empty state.
 """
 
 import json
+from typing import Any
 
 import boto3
 import pytest
@@ -56,14 +57,15 @@ def _delete_partition_from_silver_pitches_staging() -> None:
     )
 
 
-def _invoke(partition_name: str) -> dict:
+def _invoke(partition_name: str) -> dict[str, Any]:
     """Invoke the silver load Lambda and return the parsed body."""
     response = lambda_client.invoke(
         FunctionName=FUNCTION_NAME,
         Payload=json.dumps({"partition_name": partition_name}),
     )
     payload = json.loads(response["Payload"].read())
-    return json.loads(payload["body"])
+    result: dict[str, Any] = json.loads(payload["body"])
+    return result
 
 
 @pytest.mark.integration
@@ -80,28 +82,28 @@ class TestSilverPitchesLoadPartition:
         """Load a partition into an empty silver pitches canonical table.
 
         1. Invoke the Lambda for the test partition.
-        2. Assert records_loaded > 0 (rows inserted into silver pitches staging from bronze).
-        3. Assert records_merged > 0 (rows merged from silver pitches staging into canonical).
-        4. Query silver pitches canonical and assert row count matches records_loaded.
+        2. Assert records_loaded > 0 (rows into staging).
+        3. Assert records_merged > 0 (rows into canonical).
+        4. Assert canonical row count matches records_loaded.
         """
         result = _invoke(PARTITION_NAME)
 
-        assert result["records_loaded"] > 0, (
-            f"Expected records loaded into staging, got {result['records_loaded']}"
-        )
-        assert result["records_merged"] > 0, (
-            f"Expected records merged into canonical, got {result['records_merged']}"
-        )
+        assert (
+            result["records_loaded"] > 0
+        ), f"Expected records loaded into staging, got {result['records_loaded']}"
+        assert (
+            result["records_merged"] > 0
+        ), f"Expected records merged into canonical, got {result['records_merged']}"
         assert _count_silver_pitches_canonical_rows() == result["records_loaded"]
 
     def test_reload_merges_same_count(self):
         """Reload the same partition and verify idempotency.
 
-        1. Invoke the Lambda to load the test partition (first load into silver pitches canonical).
-        2. Invoke the Lambda again for the same partition (reload).
-        3. Assert records_loaded is the same for both invocations.
-        4. Assert records_merged > 0 on reload (MERGE updates existing rows in canonical).
-        5. Query silver pitches canonical and assert row count is unchanged from first load.
+        1. Load the test partition (first load into canonical).
+        2. Invoke the Lambda again for the same partition.
+        3. Assert records_loaded is the same for both.
+        4. Assert records_merged > 0 on reload (MERGE updates).
+        5. Assert canonical row count unchanged from first load.
         """
         first = _invoke(PARTITION_NAME)
         second = _invoke(PARTITION_NAME)
@@ -110,7 +112,7 @@ class TestSilverPitchesLoadPartition:
             f"Expected same records loaded on reload, "
             f"got {second['records_loaded']} vs {first['records_loaded']}"
         )
-        assert second["records_merged"] > 0, (
-            f"Expected records merged on reload, got {second['records_merged']}"
-        )
+        assert (
+            second["records_merged"] > 0
+        ), f"Expected records merged on reload, got {second['records_merged']}"
         assert _count_silver_pitches_canonical_rows() == first["records_loaded"]

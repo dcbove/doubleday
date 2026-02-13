@@ -1,6 +1,6 @@
 """Unit tests for doubleday.util.athena."""
 
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 

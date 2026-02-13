@@ -9,7 +9,7 @@ def test_main_runs_without_error():
     try:
         main()
     except Exception as e:
-        raise AssertionError(f"main() raised an exception: {e}")
+        raise AssertionError(f"main() raised an exception: {e}") from e
 
 
 def test_main_exists():

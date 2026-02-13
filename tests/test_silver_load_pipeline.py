@@ -1,6 +1,5 @@
 """Unit tests for doubleday.lambdas.silver_load.pipeline."""
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -62,10 +61,18 @@ class TestLoadPartition:
     def sql_dir(self, tmp_path):
         """Create minimal SQL template files for testing."""
         templates = {
-            "silver_clear_partition_from_staging_table.sql": "DELETE WHERE season={season}",
-            "silver_load_partition_into_staging_table.sql": "INSERT season={season} game_date='{game_date}'",
-            "silver_validate_staging_table.sql": "SELECT COUNT(*) WHERE season={season}",
-            "silver_merge_partition_into_canonical_table.sql": "MERGE season={season}",
+            "silver_clear_partition_from_staging_table.sql": (
+                "DELETE WHERE season={season}"
+            ),
+            "silver_load_partition_into_staging_table.sql": (
+                "INSERT season={season} game_date='{game_date}'"
+            ),
+            "silver_validate_staging_table.sql": (
+                "SELECT COUNT(*) WHERE season={season}"
+            ),
+            "silver_merge_partition_into_canonical_table.sql": (
+                "MERGE season={season}"
+            ),
         }
         for name, content in templates.items():
             (tmp_path / name).write_text(content)
@@ -123,7 +130,7 @@ class TestLoadPartition:
         with pytest.raises(ValueError, match="5 duplicate"):
             load_partition(client, "my_db", "bucket", sql_dir, 2025, "2025-03-27")
 
-        # Only 3 queries ran (clear, load, validate) — merge and final clear never executed
+        # Only 3 queries ran — merge and final clear never executed
         assert mock_run.call_count == 3
 
     @patch("doubleday.lambdas.silver_load.pipeline.get_query_row_count")

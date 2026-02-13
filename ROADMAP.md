@@ -95,5 +95,6 @@ Trigger the pipeline automatically so daily games are processed without manual i
 | Gold load Lambda | Done (`src/doubleday/lambdas/gold_load/`) |
 | Gold load Terraform | Done (`terraform/modules/gold_load/`) |
 | Step Function | Done (`terraform/modules/step_function/`) |
-| Bronze load Lambda | Not started |
+| Validate input Lambda | Done (`src/doubleday/lambdas/validate_input/`) |
+| Bronze load Lambda | Done (`src/doubleday/lambdas/bronze_load/`) |
 | Scheduled automation | Not started |

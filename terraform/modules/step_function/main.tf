@@ -26,6 +26,8 @@ resource "aws_iam_role_policy" "pipeline" {
         Effect = "Allow"
         Action = "lambda:InvokeFunction"
         Resource = [
+          var.validate_input_function_arn,
+          var.bronze_load_function_arn,
           var.silver_load_function_arn,
           var.gold_load_function_arn,
         ]
@@ -64,9 +66,54 @@ resource "aws_sfn_state_machine" "pipeline" {
   }
 
   definition = jsonencode({
-    Comment = "Doubleday ETL pipeline: silver load per game_date, then gold load per table"
-    StartAt = "SilverLoadMap"
+    Comment = "Doubleday ETL pipeline: validate → bronze → silver → gold"
+    StartAt = "ValidateInput"
     States = {
+      ValidateInput = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::lambda:invoke"
+        Parameters = {
+          FunctionName = var.validate_input_function_arn
+          "Payload.$"  = "$"
+        }
+        ResultSelector = {
+          "season.$"         = "$.Payload.season"
+          "game_dates.$"     = "$.Payload.game_dates"
+          "force_download.$" = "$.Payload.force_download"
+        }
+        ResultPath = "$"
+        Next       = "BronzeLoadMap"
+      }
+
+      BronzeLoadMap = {
+        Type       = "Map"
+        InputPath  = "$"
+        ItemsPath  = "$.game_dates"
+        MaxConcurrency = 5
+        Parameters = {
+          "season.$"         = "$.season"
+          "game_date.$"      = "$$.Map.Item.Value"
+          "force_download.$" = "$.force_download"
+        }
+        Iterator = {
+          StartAt = "BronzeLoad"
+          States = {
+            BronzeLoad = {
+              Type     = "Task"
+              Resource = "arn:aws:states:::lambda:invoke"
+              Parameters = {
+                FunctionName = var.bronze_load_function_arn
+                "Payload.$"  = "$"
+              }
+              ResultPath = "$.bronze_result"
+              End        = true
+            }
+          }
+        }
+        ResultPath = "$.bronze_results"
+        Next       = "SilverLoadMap"
+      }
+
       SilverLoadMap = {
         Type       = "Map"
         InputPath  = "$"
@@ -91,6 +138,13 @@ resource "aws_sfn_state_machine" "pipeline" {
           }
         }
         ResultPath = "$.silver_results"
+        Next       = "SetGoldTables"
+      }
+
+      SetGoldTables = {
+        Type   = "Pass"
+        Result = ["gold_pitches_shape_season"]
+        ResultPath = "$.gold_tables"
         Next       = "GoldLoadMap"
       }
 

@@ -1,6 +1,5 @@
 """Unit tests for doubleday.lambdas.gold_load.pipeline."""
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -50,7 +49,10 @@ class TestSplitStatements:
 
     def test_skips_comment_only_fragments(self):
         """Ignores fragments that are only comments."""
-        sql = "-- Step 1: delete\nDELETE FROM t;\n-- Step 2: insert\nINSERT INTO t SELECT 1;"
+        sql = (
+            "-- Step 1: delete\nDELETE FROM t;\n"
+            "-- Step 2: insert\nINSERT INTO t SELECT 1;"
+        )
         result = split_statements(sql)
         assert len(result) == 2
         assert "DELETE" in result[0]

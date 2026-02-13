@@ -2,13 +2,13 @@
 
 # Linting and formatting
 lint:
-	uv run ruff check src/ --fix
+	uv run ruff check src/ tests/ --fix
 
 format:
-	uv run black src/
+	uv run black src/ tests/
 
 typecheck:
-	uv run mypy src/
+	uv run mypy src/ tests/
 
 test:
 	uv run pytest tests/ -v -m "not integration"

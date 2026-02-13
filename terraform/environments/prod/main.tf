@@ -30,6 +30,7 @@ module "lambda" {
   glue_database         = module.glue.database_name
   athena_results_bucket = var.athena_results_bucket
   lakehouse_bucket_arn  = module.s3.lakehouse_bucket_arn
+  lakehouse_bucket_name = module.s3.lakehouse_bucket_name
   powertools_layer_arn  = var.powertools_layer_arn
 }
 
@@ -37,6 +38,8 @@ module "step_function" {
   source                   = "../../modules/step_function"
   project                  = var.project
   environment              = var.environment
-  silver_load_function_arn = module.lambda.silver_load_function_arn
-  gold_load_function_arn   = module.lambda.gold_load_function_arn
+  silver_load_function_arn     = module.lambda.silver_load_function_arn
+  gold_load_function_arn       = module.lambda.gold_load_function_arn
+  bronze_load_function_arn     = module.lambda.bronze_load_function_arn
+  validate_input_function_arn  = module.lambda.validate_input_function_arn
 }

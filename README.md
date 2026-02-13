@@ -20,6 +20,11 @@ make install
 ```
 src/doubleday/
   lambdas/
+    validate_input/
+      handler.py        # Lambda entry point — validate and normalize input
+    bronze_load/
+      handler.py        # Lambda entry point — event parsing, metrics, response
+      pipeline.py       # Business logic — download from Baseball Savant to S3
     silver_load/
       handler.py        # Lambda entry point — event parsing, metrics, response
       pipeline.py       # Business logic — stage, validate, merge pipeline
@@ -55,6 +60,8 @@ terraform/
   terraform-apply.yml   # Merge to main: apply dev then prod
 tests/
   test_main.py                              # Unit tests
+  test_validate_input_handler.py            # Validate input unit tests
+  test_bronze_load_pipeline.py              # Bronze load unit tests
   test_gold_load_pipeline.py                # Gold load unit tests
   integration/
     test_silver_pitches_load.py             # Silver load integration tests
@@ -111,6 +118,16 @@ data/bronze/
     ├── game_date=2025-03-01/statcast.csv
     ├── game_date=2025-03-02/statcast.csv
     └── ...
+```
+
+### Invoking the bronze_load Lambda
+
+```bash
+aws lambda invoke \
+  --function-name doubleday-dev-bronze-load \
+  --payload '{"season": 2024, "game_date": "2024-03-01", "force_download": false}' \
+  --cli-binary-format raw-in-base64-out \
+  /dev/stdout
 ```
 
 ### Sync with S3
@@ -225,15 +242,26 @@ s3://doubleday-<env>-lakehouse/gold/
 
 A Standard Step Function orchestrates the full ETL pipeline:
 
-1. **Map over game_dates** (concurrency 5) — invoke `silver_load` for each date
-2. **Map over gold_tables** — invoke `gold_load` for each table with the season
+1. **ValidateInput** — validate all game_date years match season, default `force_download` to `false`
+2. **BronzeLoadMap** (concurrency 5) — invoke `bronze_load` for each date (download from Baseball Savant to S3)
+3. **SilverLoadMap** (concurrency 5) — invoke `silver_load` for each date
+4. **SetGoldTables** — inject hardcoded gold table list
+5. **GoldLoadMap** (concurrency 1) — invoke `gold_load` for each table with the season
 
 ### Invoking the Step Function
 
 ```bash
 aws stepfunctions start-execution \
   --state-machine-arn arn:aws:states:<region>:<account>:stateMachine:doubleday-dev-pipeline \
-  --input '{"season": 2024, "game_dates": ["2024-03-01"], "gold_tables": ["gold_pitches_shape_season"]}'
+  --input '{"season": 2024, "game_dates": ["2024-03-01"]}'
+```
+
+Use `force_download` to re-download files that already exist in S3:
+
+```bash
+aws stepfunctions start-execution \
+  --state-machine-arn arn:aws:states:<region>:<account>:stateMachine:doubleday-dev-pipeline \
+  --input '{"season": 2024, "game_dates": ["2024-03-01"], "force_download": true}'
 ```
 
 ### Why partition overwrite
@@ -305,7 +333,7 @@ terraform apply
 |--------|-------------|
 | `s3` | Lakehouse S3 bucket |
 | `glue` | Glue database, bronze/silver/gold table DDL |
-| `lambda` | Lambda functions (silver_load, gold_load), IAM roles, zip packaging |
+| `lambda` | Lambda functions (validate_input, bronze_load, silver_load, gold_load), IAM roles, zip packaging |
 | `step_function` | Pipeline Step Function, IAM role, CloudWatch logging |
 | `oidc` | GitHub Actions OIDC provider and IAM role (dev only, account-level) |
 
