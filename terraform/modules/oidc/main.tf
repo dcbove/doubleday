@@ -91,6 +91,7 @@ resource "aws_iam_role_policy" "terraform_managed_resources" {
           "s3:GetBucketTagging",
           "s3:GetBucketVersioning",
           "s3:GetBucketWebsite",
+          "s3:GetAccelerateConfiguration",
           "s3:GetBucketCors",
           "s3:GetEncryptionConfiguration",
           "s3:GetLifecycleConfiguration",
