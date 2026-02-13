@@ -66,6 +66,7 @@ SELECT
 
 FROM silver_pitches
 WHERE season = {season}
+  AND game_type = 'R'
   AND pfx_x IS NOT NULL
   AND pfx_z IS NOT NULL
   AND release_speed IS NOT NULL
@@ -74,4 +75,4 @@ GROUP BY
     season,
     pitcher,
     pitch_type
-HAVING count(*) >= 50;
+HAVING count(*) >= 20;

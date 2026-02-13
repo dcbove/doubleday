@@ -63,7 +63,7 @@ Handler code (`handler.py`) is separated from business logic (`pipeline.py`) so 
 ```bash
 make test               # Run unit tests (excludes integration)
 make test-integration   # Run integration tests (requires AWS credentials)
-make lint               # Lint with ruff
+make lint               # Lint and auto-fix with ruff
 make format             # Format with black
 make typecheck          # Type check with mypy
 make check-all          # Run all checks (lint, format, typecheck, unit tests)
@@ -71,7 +71,7 @@ make check-all          # Run all checks (lint, format, typecheck, unit tests)
 
 ### Pre-commit hooks
 
-A pre-commit hook runs `make check-all` before every commit. It is installed automatically by `make install`, or manually:
+The pre-commit hook auto-fixes lint and formatting issues (via `ruff --fix` and `black`), re-stages the changes, then fails only on errors that can't be auto-fixed (type errors, test failures). Installed automatically by `make install`, or manually:
 
 ```bash
 make install-hooks
@@ -82,8 +82,7 @@ This sets `core.hooksPath` to `.githooks/`, which is tracked in the repo — no 
 ### Code standards
 
 - All Python modules, public functions, classes, and methods must have docstrings (Google-style convention).
-- Enforced by Ruff (`D` rules) — `ruff check` will fail on missing docstrings.
-- Formatting: black. Type checking: mypy. Linting: ruff.
+- Linting: ruff (`B`, `D`, `E`, `F`, `I`, `UP` rules). Formatting: black. Type checking: mypy.
 - See `CLAUDE.md` for AI-assisted development guidelines.
 
 ## Data: Bronze Layer
@@ -131,7 +130,7 @@ GROUP BY pitch_type
 
 ## Data: Silver Layer
 
-The silver layer is the canonical, typed source of truth. Data is stored as Apache Iceberg tables in Parquet format, partitioned by `(season, game_date)`. Deprecated columns from the bronze layer are dropped and all remaining columns are strongly typed.
+The silver layer is the canonical, typed source of truth for all game types (regular season, postseason, spring training, etc.). Data is stored as Apache Iceberg tables in Parquet format, partitioned by `(season, game_date)`. Deprecated columns from the bronze layer are dropped and all remaining columns are strongly typed.
 
 ### Tables
 
@@ -151,7 +150,7 @@ Schema evolution (adding columns, changing types) should be done via Athena `ALT
 
 ### Silver load pipeline
 
-The `silver-load` Lambda loads a single `(season, game_date)` partition from bronze to silver. The pipeline runs these steps in order:
+The `silver_load` Lambda loads a single `(season, game_date)` partition from bronze to silver. The pipeline runs these steps in order:
 
 1. **Clear staging** — delete the partition from `silver_pitches_staging`
 2. **Load partition** — INSERT from `bronze_statcast` into `silver_pitches_staging` with type casting
@@ -161,15 +160,7 @@ The `silver-load` Lambda loads a single `(season, game_date)` partition from bro
 
 If validation fails, the canonical table is untouched.
 
-### Why partition overwrite (not MERGE)
-
-In Iceberg, partition overwrite and merge upserts represent two different update models. A partition overwrite rewrites all data within a logical partition (e.g., `season=2025/game_date=2025-05-14`) as a single atomic operation. Iceberg creates a new snapshot that replaces the files for that partition, without needing to reason about individual row changes. A MERGE upsert, by contrast, operates at row granularity: it matches existing rows on a key, updates those that match, inserts those that don't, and may produce both new data files and delete files under the hood. Merge is more flexible but introduces additional metadata churn, potential small-file fragmentation, and greater operational complexity.
-
-We chose partition overwrite because Statcast game data is effectively immutable once finalized. Our ingestion unit is already aligned to a natural partition boundary `(season, game_date)`, and reprocessing a day means "replace that day," not "surgically edit individual pitches." Overwrite keeps the pipeline deterministic, simplifies correctness reasoning (no row-level keys or match logic required), and minimizes operational surface area. For our workload, merge would add complexity without providing meaningful benefit.
-
-### Invoking the Lambda
-
-The Lambda expects a `partition_name` in the event payload:
+### Invoking the silver_load Lambda
 
 ```bash
 aws lambda invoke \
@@ -177,24 +168,6 @@ aws lambda invoke \
   --payload '{"partition_name": "season=2024/game_date=2024-03-01"}' \
   --cli-binary-format raw-in-base64-out \
   /dev/stdout
-```
-
-### Iceberg introspection
-
-View snapshot history (each load/merge creates a new snapshot):
-
-```sql
-SELECT * FROM "silver_pitches$snapshots";
-```
-
-Verify partition pruning is working on a query:
-
-```sql
-EXPLAIN
-SELECT COUNT(*)
-FROM silver_pitches
-WHERE season = 2025
-  AND game_date = DATE '2025-05-14';
 ```
 
 ### S3 layout
@@ -211,7 +184,7 @@ The gold layer contains precomputed analytical tables built from silver. Each ta
 
 ### Tables
 
-- **`gold_pitches_shape_season`** — per-pitcher, per-pitch-type season aggregations including movement, velocity, spin, and usage metrics. Minimum 50-pitch threshold per pitch type.
+- **`gold_pitches_shape_season`** — per-pitcher, per-pitch-type season aggregations including movement, velocity, spin, and usage metrics. Regular season games only (`game_type = 'R'`). Minimum 20-pitch threshold per pitch type.
 
 ### Table creation
 
@@ -223,14 +196,14 @@ sql/ddl/gold_pitches_shape_season.sql
 
 ### Gold load pipeline
 
-The `gold-load` Lambda loads a single gold table for a given season. It reads a SQL file containing both a DELETE (clear the season partition) and an INSERT (rebuild from silver), splits them into statements, and executes each in order.
+The `gold_load` Lambda loads a single gold table for a given season. It reads a SQL file containing both a DELETE (clear the season partition) and an INSERT (rebuild from silver), splits them into statements, and executes each in order.
 
-### Invoking the Lambda
+### Invoking the gold_load Lambda
 
 ```bash
 aws lambda invoke \
   --function-name doubleday-dev-gold-load \
-  --payload '{"table_name": "gold_pitches_shape_season", "season": 2025}' \
+  --payload '{"table_name": "gold_pitches_shape_season", "season": 2024}' \
   --cli-binary-format raw-in-base64-out \
   /dev/stdout
 ```
@@ -244,13 +217,7 @@ s3://doubleday-<env>-lakehouse/gold/
 
 ## Pipeline Orchestration
 
-A Standard Step Function orchestrates the full ETL pipeline. Input:
-
-```json
-{"season": 2025, "game_dates": ["2025-05-14"], "gold_tables": ["gold_pitches_shape_season"]}
-```
-
-The pipeline:
+A Standard Step Function orchestrates the full ETL pipeline:
 
 1. **Map over game_dates** (concurrency 5) — invoke `silver_load` for each date
 2. **Map over gold_tables** — invoke `gold_load` for each table with the season
@@ -260,8 +227,24 @@ The pipeline:
 ```bash
 aws stepfunctions start-execution \
   --state-machine-arn arn:aws:states:<region>:<account>:stateMachine:doubleday-dev-pipeline \
-  --input '{"season": 2025, "game_dates": ["2025-05-14"], "gold_tables": ["gold_pitches_shape_season"]}'
+  --input '{"season": 2024, "game_dates": ["2024-03-01"], "gold_tables": ["gold_pitches_shape_season"]}'
 ```
+
+### Why partition overwrite
+
+Statcast game data is effectively immutable once finalized. Our ingestion unit is already aligned to a natural partition boundary — `(season, game_date)` for silver, `(season)` for gold — and reprocessing means "replace that partition," not "surgically edit individual rows." Overwrite keeps the pipeline deterministic, simplifies correctness reasoning, and minimizes operational surface area.
+
+### Why Standard over Express Step Functions
+
+Standard Step Functions support executions up to one year and have detailed execution history. This matters for backfills — reprocessing an entire season (180+ game dates) can take well over five minutes, which is the Express maximum. Standard also provides per-step visibility in the console, making debugging straightforward.
+
+### Why a single parameterized gold Lambda
+
+One `gold_load` Lambda accepts a table name parameter and executes the corresponding SQL. Adding a new gold table means adding a SQL file and a Step Function entry — no Lambda code changes.
+
+### Why the Step Function is the single entry point
+
+All processing flows through the Step Function. There are no S3 event triggers or independent Lambda invocations in production. This eliminates double-processing, makes the pipeline easy to reason about, and gives a single place to monitor execution status.
 
 ## Testing
 
@@ -280,6 +263,24 @@ make test-integration
 ```
 
 Each test clears the test partition (`season=2024/game_date=2024-03-01`) from both staging and canonical before running, so they are safe to re-run.
+
+## Iceberg Introspection
+
+View snapshot history (each load creates a new snapshot):
+
+```sql
+SELECT * FROM "silver_pitches$snapshots";
+```
+
+Verify partition pruning is working on a query:
+
+```sql
+EXPLAIN
+SELECT COUNT(*)
+FROM silver_pitches
+WHERE season = 2025
+  AND game_date = DATE '2025-05-14';
+```
 
 ## Infrastructure
 
