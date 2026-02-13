@@ -2,9 +2,12 @@ data "archive_file" "silver_load" {
   type        = "zip"
   output_path = "${path.module}/../../../builds/silver_load.zip"
 
-  source {
-    content  = file("${path.module}/../../../src/doubleday/lambdas/silver_load/handler.py")
-    filename = "handler.py"
+  dynamic "source" {
+    for_each = fileset("${path.module}/../../../src", "doubleday/**/*.py")
+    content {
+      content  = file("${path.module}/../../../src/${source.value}")
+      filename = source.value
+    }
   }
 
   dynamic "source" {
@@ -99,7 +102,7 @@ resource "aws_iam_role_policy" "silver_load" {
 resource "aws_lambda_function" "silver_load" {
   function_name    = "${var.project}-${var.environment}-silver-load"
   role             = aws_iam_role.silver_load.arn
-  handler          = "handler.handler"
+  handler          = "doubleday.lambdas.silver_load.handler.handler"
   runtime          = "python3.12"
   timeout          = 900
   memory_size      = 128

@@ -7,10 +7,11 @@ canonical tables so that the Lambda runs against a known-empty state.
 """
 
 import json
-import time
 
 import boto3
 import pytest
+
+from doubleday.util.athena import run_query
 
 lambda_client = boto3.client("lambda")
 athena_client = boto3.client("athena")
@@ -25,25 +26,7 @@ GAME_DATE = "2024-03-01"
 
 
 def _run_athena_query(sql: str) -> str:
-    """Submit a query to Athena and wait for completion. Returns the execution ID."""
-    response = athena_client.start_query_execution(
-        QueryString=sql,
-        QueryExecutionContext={"Database": DATABASE},
-        ResultConfiguration={"OutputLocation": f"s3://{OUTPUT_BUCKET}/"},
-    )
-    execution_id = response["QueryExecutionId"]
-
-    while True:
-        result = athena_client.get_query_execution(QueryExecutionId=execution_id)
-        state = result["QueryExecution"]["Status"]["State"]
-        if state == "SUCCEEDED":
-            return execution_id
-        if state in ("FAILED", "CANCELLED"):
-            reason = result["QueryExecution"]["Status"].get(
-                "StateChangeReason", "Unknown"
-            )
-            raise RuntimeError(f"Query {state}: {reason}")
-        time.sleep(2)
+    return run_query(athena_client, sql, DATABASE, OUTPUT_BUCKET)
 
 
 def _count_silver_pitches_canonical_rows() -> int:
