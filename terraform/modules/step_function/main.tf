@@ -110,7 +110,7 @@ resource "aws_sfn_state_machine" "pipeline" {
             }
           }
         }
-        ResultPath = "$.bronze_results"
+        ResultPath = null
         Next       = "SilverLoadMap"
       }
 
@@ -137,7 +137,7 @@ resource "aws_sfn_state_machine" "pipeline" {
             }
           }
         }
-        ResultPath = "$.silver_results"
+        ResultPath = null
         Next       = "SetGoldTables"
       }
 
@@ -172,7 +172,7 @@ resource "aws_sfn_state_machine" "pipeline" {
             }
           }
         }
-        ResultPath = "$.gold_results"
+        ResultPath = null
         Next       = "Succeed"
       }
 
