@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS gold_pitches_shape_season (
   season                 int
 )
 PARTITIONED BY (season)
-LOCATION 's3://doubleday-dev-lakehouse/gold/gold_pitches_shape_season/'
+LOCATION 's3://{lakehouse_bucket}/gold/gold_pitches_shape_season/'
 TBLPROPERTIES (
   'table_type' = 'ICEBERG',
   'format'     = 'PARQUET'

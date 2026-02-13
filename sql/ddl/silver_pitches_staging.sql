@@ -142,7 +142,7 @@ CREATE TABLE IF NOT EXISTS silver_pitches_staging (
   game_date                                  date
 )
 PARTITIONED BY (season, game_date)
-LOCATION 's3://doubleday-dev-lakehouse/silver/silver_pitches_staging/'
+LOCATION 's3://{lakehouse_bucket}/silver/silver_pitches_staging/'
 TBLPROPERTIES (
   'table_type' = 'ICEBERG',
   'format'     = 'PARQUET'
