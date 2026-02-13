@@ -8,17 +8,12 @@ variable "environment" {
   type        = string
 }
 
-variable "region" {
-  description = "AWS region"
+variable "lakehouse_bucket_name" {
+  description = "Name of the lakehouse S3 bucket"
   type        = string
 }
 
 variable "athena_results_bucket" {
   description = "S3 bucket name for Athena query results"
-  type        = string
-}
-
-variable "powertools_layer_arn" {
-  description = "ARN of the AWS Lambda Powertools for Python layer"
   type        = string
 }

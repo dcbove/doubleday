@@ -1,27 +1,30 @@
-.PHONY: lint format typecheck test check-all run install clean
+.PHONY: lint format typecheck test test-integration check-all run install install-hooks clean
 
 # Linting and formatting
 lint:
-	uv run ruff check src/
+	uv run ruff check src/ tests/ --fix
 
 format:
-	uv run black src/
-
-format-check:
-	uv run black --check src/
+	uv run black src/ tests/
 
 typecheck:
-	uv run mypy src/
+	uv run mypy src/ tests/
 
 test:
-	uv run pytest tests/ -v
+	uv run pytest tests/ -v -m "not integration"
 
-check-all: lint format-check typecheck test
+test-integration:
+	uv run pytest tests/integration/ -v -m integration
+
+check-all: lint format typecheck test
 	@echo "✅ All checks passed!"
 
 # Development
-install:
+install: install-hooks
 	uv sync --dev
+
+install-hooks:
+	git config core.hooksPath .githooks
 
 run:
 	uv run doubleday
@@ -41,8 +44,9 @@ help:
 	@echo "  make format      - Format code with black"
 	@echo "  make format-check- Check if code is formatted"
 	@echo "  make typecheck   - Run mypy type checker"
-	@echo "  make test        - Run tests with pytest"
-	@echo "  make check-all   - Run all checks (lint, format, typecheck, test)"
+	@echo "  make test             - Run unit tests (excludes integration)"
+	@echo "  make test-integration - Run integration tests (requires AWS)"
+	@echo "  make check-all        - Run all checks (lint, format, typecheck, unit tests)"
 	@echo "  make run         - Run the application"
 	@echo "  make clean       - Clean up cache files"
 	@echo "  make help        - Show this help"

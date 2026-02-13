@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -e
+
+# Auto-fix lint and formatting, then re-stage
+make lint format
+git add -u
+
+# Fail on things that can't be auto-fixed
+make typecheck test

@@ -52,6 +52,9 @@ uv.lock
 *.tfstate.backup
 .terraform.lock.hcl
 
+# Builds
+builds/
+
 # Data
 data/
 
