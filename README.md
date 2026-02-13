@@ -264,6 +264,17 @@ aws stepfunctions start-execution \
   --input '{"season": 2024, "game_dates": ["2024-03-01"], "force_download": true}'
 ```
 
+### Backfilling a season
+
+To process an entire season (March 1–Nov 30), use the backfill script:
+
+```bash
+bash util/backfill_season.sh 2024        # defaults to dev
+bash util/backfill_season.sh 2024 prod   # specify environment
+```
+
+This generates all ~275 dates in the range and starts a single Step Function execution. Bronze load skips any dates already in S3 (unless `force_download` is set), so backfills are safe to re-run — only silver and gold do real work for previously downloaded data.
+
 ### Why partition overwrite
 
 Statcast game data is effectively immutable once finalized. Our ingestion unit is already aligned to a natural partition boundary — `(season, game_date)` for silver, `(season)` for gold — and reprocessing means "replace that partition," not "surgically edit individual rows." Overwrite keeps the pipeline deterministic, simplifies correctness reasoning, and minimizes operational surface area.
