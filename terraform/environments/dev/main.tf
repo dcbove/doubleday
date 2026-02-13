@@ -22,3 +22,13 @@ module "glue" {
   lakehouse_bucket_name = module.s3.lakehouse_bucket_name
   athena_results_bucket = var.athena_results_bucket
 }
+
+module "lambda" {
+  source                = "../../modules/lambda"
+  project               = var.project
+  environment           = var.environment
+  glue_database         = module.glue.database_name
+  athena_results_bucket = var.athena_results_bucket
+  lakehouse_bucket_arn  = module.s3.lakehouse_bucket_arn
+  powertools_layer_arn  = var.powertools_layer_arn
+}
