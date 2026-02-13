@@ -11,9 +11,9 @@ data "archive_file" "silver_load" {
   }
 
   dynamic "source" {
-    for_each = fileset("${path.module}/../../../sql", "silver_*.sql")
+    for_each = fileset("${path.module}/../../../sql/pipeline", "silver_*.sql")
     content {
-      content  = file("${path.module}/../../../sql/${source.value}")
+      content  = file("${path.module}/../../../sql/pipeline/${source.value}")
       filename = "sql/${source.value}"
     }
   }

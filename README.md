@@ -26,12 +26,15 @@ src/doubleday/
     athena.py           # Shared Athena query execution utilities
   main.py              # CLI entry point
 sql/
-  silver_pitches.sql                              # Iceberg DDL (canonical)
-  silver_pitches_staging.sql                      # Iceberg DDL (staging)
-  silver_clear_partition_from_staging_table.sql    # Delete partition from staging
-  silver_load_partition_into_staging_table.sql     # Bronze -> staging INSERT
-  silver_validate_staging_table.sql               # Duplicate key check on staging
-  silver_merge_partition_into_canonical_table.sql  # Staging -> canonical MERGE
+  ddl/
+    silver_pitches.sql                              # Iceberg DDL (canonical)
+    silver_pitches_staging.sql                      # Iceberg DDL (staging)
+  pipeline/
+    silver_clear_partition_from_staging_table.sql    # Delete partition from staging
+    silver_load_partition_into_staging_table.sql     # Bronze -> staging INSERT
+    silver_validate_staging_table.sql               # Duplicate key check on staging
+    silver_merge_partition_into_canonical_table.sql  # Staging -> canonical MERGE
+    gold_pitches_shape_season.sql                   # Pitch shape aggregation query
 terraform/
   environments/dev/     # Dev environment root (plan/apply from here)
   modules/
@@ -133,8 +136,8 @@ The silver layer is the canonical, typed source of truth. Data is stored as Apac
 Tables are created via Athena DDL, triggered automatically by `terraform apply` through `null_resource` provisioners. The SQL definitions live in:
 
 ```
-sql/silver_pitches.sql
-sql/silver_pitches_staging.sql
+sql/ddl/silver_pitches.sql
+sql/ddl/silver_pitches_staging.sql
 ```
 
 Schema evolution (adding columns, changing types) should be done via Athena `ALTER TABLE` statements, not by modifying the Glue catalog directly — Iceberg manages its own metadata in S3.
@@ -151,6 +154,12 @@ The `silver-load` Lambda loads a single `(season, game_date)` partition from bro
 
 If validation fails, the canonical table is untouched.
 
+### Why partition overwrite (not MERGE)
+
+In Iceberg, partition overwrite and merge upserts represent two different update models. A partition overwrite rewrites all data within a logical partition (e.g., `season=2025/game_date=2025-05-14`) as a single atomic operation. Iceberg creates a new snapshot that replaces the files for that partition, without needing to reason about individual row changes. A MERGE upsert, by contrast, operates at row granularity: it matches existing rows on a key, updates those that match, inserts those that don't, and may produce both new data files and delete files under the hood. Merge is more flexible but introduces additional metadata churn, potential small-file fragmentation, and greater operational complexity.
+
+We chose partition overwrite because Statcast game data is effectively immutable once finalized. Our ingestion unit is already aligned to a natural partition boundary `(season, game_date)`, and reprocessing a day means "replace that day," not "surgically edit individual pitches." Overwrite keeps the pipeline deterministic, simplifies correctness reasoning (no row-level keys or match logic required), and minimizes operational surface area. For our workload, merge would add complexity without providing meaningful benefit.
+
 ### Invoking the Lambda
 
 The Lambda expects a `partition_name` in the event payload:
@@ -161,6 +170,24 @@ aws lambda invoke \
   --payload '{"partition_name": "season=2024/game_date=2024-03-01"}' \
   --cli-binary-format raw-in-base64-out \
   /dev/stdout
+```
+
+### Iceberg introspection
+
+View snapshot history (each load/merge creates a new snapshot):
+
+```sql
+SELECT * FROM "silver_pitches$snapshots";
+```
+
+Verify partition pruning is working on a query:
+
+```sql
+EXPLAIN
+SELECT COUNT(*)
+FROM silver_pitches
+WHERE season = 2025
+  AND game_date = DATE '2025-05-14';
 ```
 
 ### S3 layout
