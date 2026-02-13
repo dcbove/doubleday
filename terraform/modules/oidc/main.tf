@@ -166,6 +166,7 @@ resource "aws_iam_role_policy" "terraform_managed_resources" {
           "states:TagResource",
           "states:ListStateMachineVersions",
           "states:UpdateStateMachine",
+          "states:ValidateStateMachineDefinition",
         ]
         Resource = "arn:aws:states:${var.region}:${data.aws_caller_identity.current.account_id}:stateMachine:${var.project}-*"
       },
