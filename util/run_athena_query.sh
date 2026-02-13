@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SQL_FILE=${1:?Usage: run_athena_query.sh <sql_file> <database> <output_bucket> [workgroup]}
-DATABASE=${2:?Usage: run_athena_query.sh <sql_file> <database> <output_bucket> [workgroup]}
-OUTPUT_BUCKET=${3:?Usage: run_athena_query.sh <sql_file> <database> <output_bucket> [workgroup]}
-WORKGROUP=${4:-primary}
+SQL_FILE=${1:?Usage: run_athena_query.sh <sql_file> <database> <output_bucket> [lakehouse_bucket] [workgroup]}
+DATABASE=${2:?Usage: run_athena_query.sh <sql_file> <database> <output_bucket> [lakehouse_bucket] [workgroup]}
+OUTPUT_BUCKET=${3:?Usage: run_athena_query.sh <sql_file> <database> <output_bucket> [lakehouse_bucket] [workgroup]}
+LAKEHOUSE_BUCKET=${4:-}
+WORKGROUP=${5:-primary}
 
 QUERY=$(cat "$SQL_FILE")
+
+if [ -n "$LAKEHOUSE_BUCKET" ]; then
+  QUERY=${QUERY//\{lakehouse_bucket\}/$LAKEHOUSE_BUCKET}
+fi
 
 EXECUTION_ID=$(aws athena start-query-execution \
   --query-string "$QUERY" \
