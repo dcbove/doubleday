@@ -91,6 +91,7 @@ resource "aws_iam_role_policy" "terraform_managed_resources" {
           "s3:GetBucketTagging",
           "s3:GetBucketVersioning",
           "s3:GetBucketWebsite",
+          "s3:GetBucketCors",
           "s3:GetEncryptionConfiguration",
           "s3:GetLifecycleConfiguration",
           "s3:GetReplicationConfiguration",
@@ -118,6 +119,7 @@ resource "aws_iam_role_policy" "terraform_managed_resources" {
           "glue:GetTables",
           "glue:UpdateTable",
           "glue:GetPartitions",
+          "glue:GetTags",
         ]
         Resource = [
           "arn:aws:glue:${var.region}:${data.aws_caller_identity.current.account_id}:catalog",
@@ -190,12 +192,19 @@ resource "aws_iam_role_policy" "terraform_managed_resources" {
         Action = [
           "logs:CreateLogGroup",
           "logs:DeleteLogGroup",
-          "logs:DescribeLogGroups",
           "logs:ListTagsForResource",
           "logs:PutRetentionPolicy",
           "logs:TagResource",
         ]
         Resource = "arn:aws:logs:${var.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/*/${var.project}-*"
+      },
+      {
+        Sid    = "CloudWatchLogsDescribe"
+        Effect = "Allow"
+        Action = [
+          "logs:DescribeLogGroups",
+        ]
+        Resource = "arn:aws:logs:${var.region}:${data.aws_caller_identity.current.account_id}:log-group:*"
       },
       {
         Sid    = "Athena"
