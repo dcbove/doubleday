@@ -1,3 +1,5 @@
+"""Lambda handler for silver load — event parsing, metrics, and response building."""
+
 import json
 import os
 from pathlib import Path
@@ -7,7 +9,7 @@ import boto3
 from aws_lambda_powertools import Metrics
 from aws_lambda_powertools.metrics import MetricUnit
 
-from doubleday.lambdas.silver_load.silver_load import (
+from doubleday.lambdas.silver_load.pipeline import (
     load_partition,
     parse_partition_name,
 )
@@ -22,6 +24,7 @@ SQL_DIR = Path(__file__).parent / "sql"
 
 @metrics.log_metrics
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
+    """Load a single silver partition, emit metrics, and return results."""
     partition_name = event["partition_name"]
     season, game_date = parse_partition_name(partition_name)
 

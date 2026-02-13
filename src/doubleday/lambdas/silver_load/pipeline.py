@@ -1,3 +1,5 @@
+"""Silver load pipeline — stage, validate, and merge partitions from bronze to silver."""
+
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -7,6 +9,7 @@ from doubleday.util.athena import get_query_row_count, run_query
 STEPS = [
     ("clear_staging", "silver_clear_partition_from_staging_table.sql"),
     ("load_partition", "silver_load_partition_into_staging_table.sql"),
+    ("validate_staging", "silver_validate_staging_table.sql"),
     ("merge_partition", "silver_merge_partition_into_canonical_table.sql"),
     ("clear_staging", "silver_clear_partition_from_staging_table.sql"),
 ]
@@ -24,19 +27,28 @@ def parse_partition_name(partition_name: str) -> tuple[int, str]:
 
 
 def load_sql(sql_dir: Path, filename: str) -> str:
+    """Read a SQL template from the given directory."""
     return (sql_dir / filename).read_text()
 
 
 @dataclass
 class LoadResult:
+    """Result of a silver load partition run."""
+
     records_loaded: int
     records_merged: int
     results: dict[str, str]
 
 
 def load_partition(
-    client, database: str, output_bucket: str, sql_dir: Path, season: int, game_date: str
+    client,
+    database: str,
+    output_bucket: str,
+    sql_dir: Path,
+    season: int,
+    game_date: str,
 ) -> LoadResult:
+    """Run the full silver load pipeline for a single partition."""
     fmt = {"season": season, "game_date": game_date}
 
     records_loaded = 0
@@ -52,6 +64,16 @@ def load_partition(
         if step_name == "load_partition":
             records_loaded = get_query_row_count(client, execution_id)
             print(f"  Records loaded into staging: {records_loaded}")
+
+        if step_name == "validate_staging":
+            duplicate_keys = get_query_row_count(client, execution_id)
+            if duplicate_keys > 0:
+                raise ValueError(
+                    f"Staging validation failed: {duplicate_keys} duplicate "
+                    f"(game_pk, at_bat_number, pitch_number) keys found "
+                    f"for season={season}, game_date={game_date}"
+                )
+            print("  Validation passed: no duplicate keys")
 
         if step_name == "merge_partition":
             records_merged = get_query_row_count(client, execution_id)

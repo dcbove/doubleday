@@ -32,6 +32,12 @@ target-version = ['py312']
 line-length = 88
 target-version = "py312"
 
+[tool.ruff.lint]
+select = ["D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
 [tool.pytest.ini_options]
 markers = [
     "integration: tests that call real AWS services",

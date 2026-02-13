@@ -1,3 +1,5 @@
+"""Athena query execution and result-reading utilities."""
+
 import time
 
 
@@ -36,7 +38,7 @@ def get_query_row_count(client, execution_id: str) -> int:
     - MERGE INTO Iceberg: count in UpdateCount (Rows is empty)
     """
     result = client.get_query_results(QueryExecutionId=execution_id)
-    update_count = result.get("UpdateCount", 0)
+    update_count = int(result.get("UpdateCount", 0))
     if update_count:
         return update_count
     rows = result["ResultSet"]["Rows"]

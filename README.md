@@ -13,15 +13,68 @@ cd doubleday
 make install
 ```
 
+`make install` installs dependencies and configures the pre-commit hook (see [Pre-commit hooks](#pre-commit-hooks)).
+
+## Project structure
+
+```
+src/doubleday/
+  lambdas/silver_load/
+    handler.py          # Lambda entry point — event parsing, metrics, response
+    pipeline.py         # Business logic — stage, validate, merge pipeline
+  util/
+    athena.py           # Shared Athena query execution utilities
+  main.py              # CLI entry point
+sql/
+  silver_pitches.sql                              # Iceberg DDL (canonical)
+  silver_pitches_staging.sql                      # Iceberg DDL (staging)
+  silver_clear_partition_from_staging_table.sql    # Delete partition from staging
+  silver_load_partition_into_staging_table.sql     # Bronze -> staging INSERT
+  silver_validate_staging_table.sql               # Duplicate key check on staging
+  silver_merge_partition_into_canonical_table.sql  # Staging -> canonical MERGE
+terraform/
+  environments/dev/     # Dev environment root (plan/apply from here)
+  modules/
+    s3/                 # Lakehouse bucket
+    glue/               # Database and table DDL
+    lambda/             # Silver load Lambda, IAM, packaging
+tests/
+  test_main.py                              # Unit tests
+  integration/
+    test_silver_pitches_load.py             # Silver load integration tests
+util/
+  download_year.sh      # Download Statcast CSVs from Baseball Savant
+```
+
+Handler code (`handler.py`) is separated from business logic (`pipeline.py`) so the pipeline can be tested and reused without a Lambda runtime. Shared utilities like Athena query execution live in `src/doubleday/util/` for use across Lambdas and tests.
+
 ## Development
 
 ```bash
-make test          # Run tests
-make lint          # Lint with ruff
-make format        # Format with black
-make typecheck     # Type check with mypy
-make check-all     # Run all checks
+make test               # Run unit tests (excludes integration)
+make test-integration   # Run integration tests (requires AWS credentials)
+make lint               # Lint with ruff
+make format             # Format with black
+make typecheck          # Type check with mypy
+make check-all          # Run all checks (lint, format, typecheck, unit tests)
 ```
+
+### Pre-commit hooks
+
+A pre-commit hook runs `make check-all` before every commit. It is installed automatically by `make install`, or manually:
+
+```bash
+make install-hooks
+```
+
+This sets `core.hooksPath` to `.githooks/`, which is tracked in the repo — no extra tooling needed.
+
+### Code standards
+
+- All Python modules, public functions, classes, and methods must have docstrings (Google-style convention).
+- Enforced by Ruff (`D` rules) — `ruff check` will fail on missing docstrings.
+- Formatting: black. Type checking: mypy. Linting: ruff.
+- See `CLAUDE.md` for AI-assisted development guidelines.
 
 ## Data: Bronze Layer
 
@@ -86,6 +139,30 @@ sql/silver_pitches_staging.sql
 
 Schema evolution (adding columns, changing types) should be done via Athena `ALTER TABLE` statements, not by modifying the Glue catalog directly — Iceberg manages its own metadata in S3.
 
+### Silver load pipeline
+
+The `silver-load` Lambda loads a single `(season, game_date)` partition from bronze to silver. The pipeline runs these steps in order:
+
+1. **Clear staging** — delete the partition from `silver_pitches_staging`
+2. **Load partition** — INSERT from `bronze_statcast` into `silver_pitches_staging` with type casting
+3. **Validate staging** — check for duplicate `(game_pk, at_bat_number, pitch_number)` keys; fail before merge if any found
+4. **Merge partition** — MERGE from staging into `silver_pitches` (insert new rows, update existing)
+5. **Clear staging** — clean up the staging table
+
+If validation fails, the canonical table is untouched.
+
+### Invoking the Lambda
+
+The Lambda expects a `partition_name` in the event payload:
+
+```bash
+aws lambda invoke \
+  --function-name doubleday-dev-silver-load \
+  --payload '{"partition_name": "season=2024/game_date=2024-03-01"}' \
+  --cli-binary-format raw-in-base64-out \
+  /dev/stdout
+```
+
 ### S3 layout
 
 ```
@@ -93,3 +170,42 @@ s3://doubleday-<env>-lakehouse/silver/
 ├── silver_pitches/            # Iceberg data + metadata
 └── silver_pitches_staging/    # Iceberg data + metadata
 ```
+
+## Testing
+
+### Unit tests
+
+```bash
+make test
+```
+
+### Integration tests
+
+Integration tests invoke the real Lambda against live Athena/Iceberg tables in the dev environment. They require valid AWS credentials.
+
+```bash
+make test-integration
+```
+
+Each test clears the test partition (`season=2024/game_date=2024-03-01`) from both staging and canonical before running, so they are safe to re-run.
+
+## Infrastructure
+
+Infrastructure is managed with Terraform. The dev environment is the deployment root:
+
+```bash
+cd terraform/environments/dev
+terraform init
+terraform plan
+terraform apply
+```
+
+### Modules
+
+| Module | Description |
+|--------|-------------|
+| `s3` | Lakehouse S3 bucket |
+| `glue` | Glue database, bronze/silver table DDL |
+| `lambda` | Silver load Lambda function, IAM role, zip packaging |
+
+The Lambda zip is built automatically by Terraform's `archive_file` data source. It bundles the full `doubleday` Python package from `src/` along with the silver SQL templates from `sql/`.

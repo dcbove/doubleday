@@ -26,6 +26,7 @@ GAME_DATE = "2024-03-01"
 
 
 def _run_athena_query(sql: str) -> str:
+    """Submit a query to Athena and wait for completion."""
     return run_query(athena_client, sql, DATABASE, OUTPUT_BUCKET)
 
 
@@ -67,6 +68,8 @@ def _invoke(partition_name: str) -> dict:
 
 @pytest.mark.integration
 class TestSilverPitchesLoadPartition:
+    """Test loading a single partition through the silver load Lambda."""
+
     def setup_method(self):
         """Clear the test partition from silver pitches staging and canonical."""
         _delete_partition_from_silver_pitches_staging()
