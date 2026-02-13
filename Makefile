@@ -2,7 +2,7 @@
 
 # Linting and formatting
 lint:
-	uv run ruff check src/
+	uv run ruff check src/ --fix
 
 format:
 	uv run black src/

@@ -4,7 +4,10 @@ import time
 
 
 def run_query(client, sql: str, database: str, output_bucket: str) -> str:
-    """Submit a query to Athena and wait for it to complete. Returns the query execution ID."""
+    """Submit a query to Athena and wait for completion.
+
+    Returns the query execution ID.
+    """
     response = client.start_query_execution(
         QueryString=sql,
         QueryExecutionContext={"Database": database},
@@ -26,7 +29,8 @@ def run_query(client, sql: str, database: str, output_bucket: str) -> str:
             raise RuntimeError(f"Query {state}: {reason}")
 
         # Athena has no push notification — poll get_query_execution until done.
-        # 2s is responsive enough for typical 3-10s queries and well under API throttle limits.
+        # 2s is responsive enough for typical 3-10s queries
+        # and well under API throttle limits.
         time.sleep(2)
 
 

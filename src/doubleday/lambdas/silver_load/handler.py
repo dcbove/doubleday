@@ -9,6 +9,7 @@ import boto3
 from aws_lambda_powertools import Metrics
 from aws_lambda_powertools.metrics import MetricUnit
 
+import doubleday
 from doubleday.lambdas.silver_load.pipeline import (
     load_partition,
     parse_partition_name,
@@ -19,7 +20,7 @@ metrics = Metrics()
 
 DATABASE = os.environ["GLUE_DATABASE"]
 OUTPUT_BUCKET = os.environ["ATHENA_OUTPUT_BUCKET"]
-SQL_DIR = Path(__file__).parent / "sql"
+SQL_DIR = Path(doubleday.__file__).parent / "sql"
 
 
 @metrics.log_metrics

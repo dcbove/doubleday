@@ -32,3 +32,11 @@ module "lambda" {
   lakehouse_bucket_arn  = module.s3.lakehouse_bucket_arn
   powertools_layer_arn  = var.powertools_layer_arn
 }
+
+module "step_function" {
+  source                   = "../../modules/step_function"
+  project                  = var.project
+  environment              = var.environment
+  silver_load_function_arn = module.lambda.silver_load_function_arn
+  gold_load_function_arn   = module.lambda.gold_load_function_arn
+}

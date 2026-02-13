@@ -136,8 +136,8 @@ class TestLoadPartition:
 
         result = load_partition(client, "my_db", "bucket", sql_dir, 2025, "2025-03-27")
 
+        assert result.results["clear_staging_pre"] == "exec-1"
         assert result.results["load_partition"] == "exec-2"
         assert result.results["validate_staging"] == "exec-3"
         assert result.results["merge_partition"] == "exec-4"
-        # clear_staging runs twice; last execution wins in the dict
-        assert result.results["clear_staging"] == "exec-5"
+        assert result.results["clear_staging_post"] == "exec-5"

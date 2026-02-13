@@ -1,26 +1,5 @@
-data "archive_file" "silver_load" {
-  type        = "zip"
-  output_path = "${path.module}/../../../builds/silver_load.zip"
-
-  dynamic "source" {
-    for_each = fileset("${path.module}/../../../src", "doubleday/**/*.py")
-    content {
-      content  = file("${path.module}/../../../src/${source.value}")
-      filename = source.value
-    }
-  }
-
-  dynamic "source" {
-    for_each = fileset("${path.module}/../../../sql/pipeline", "silver_*.sql")
-    content {
-      content  = file("${path.module}/../../../sql/pipeline/${source.value}")
-      filename = "sql/${source.value}"
-    }
-  }
-}
-
-resource "aws_iam_role" "silver_load" {
-  name = "${var.project}-${var.environment}-silver-load"
+resource "aws_iam_role" "gold_load" {
+  name = "${var.project}-${var.environment}-gold-load"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -36,9 +15,9 @@ resource "aws_iam_role" "silver_load" {
   })
 }
 
-resource "aws_iam_role_policy" "silver_load" {
-  name = "${var.project}-${var.environment}-silver-load"
-  role = aws_iam_role.silver_load.id
+resource "aws_iam_role_policy" "gold_load" {
+  name = "${var.project}-${var.environment}-gold-load"
+  role = aws_iam_role.gold_load.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -99,23 +78,23 @@ resource "aws_iam_role_policy" "silver_load" {
   })
 }
 
-resource "aws_lambda_function" "silver_load" {
-  function_name    = "${var.project}-${var.environment}-silver-load"
-  role             = aws_iam_role.silver_load.arn
-  handler          = "doubleday.lambdas.silver_load.handler.handler"
+resource "aws_lambda_function" "gold_load" {
+  function_name    = "${var.project}-${var.environment}-gold-load"
+  role             = aws_iam_role.gold_load.arn
+  handler          = "doubleday.lambdas.gold_load.handler.handler"
   runtime          = "python3.12"
   timeout          = 900
   memory_size      = 128
-  filename         = data.archive_file.silver_load.output_path
-  source_code_hash = data.archive_file.silver_load.output_base64sha256
+  filename         = data.archive_file.lambda_package.output_path
+  source_code_hash = data.archive_file.lambda_package.output_base64sha256
   layers           = [var.powertools_layer_arn]
 
   environment {
     variables = {
-      GLUE_DATABASE                  = var.glue_database
-      ATHENA_OUTPUT_BUCKET           = var.athena_results_bucket
-      POWERTOOLS_METRICS_NAMESPACE   = "Doubleday"
-      POWERTOOLS_SERVICE_NAME        = "silver_load"
+      GLUE_DATABASE                = var.glue_database
+      ATHENA_OUTPUT_BUCKET         = var.athena_results_bucket
+      POWERTOOLS_METRICS_NAMESPACE = "Doubleday"
+      POWERTOOLS_SERVICE_NAME      = "gold_load"
     }
   }
 }

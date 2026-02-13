@@ -1,4 +1,7 @@
-"""Silver load pipeline — stage, validate, and merge partitions from bronze to silver."""
+"""Silver load pipeline.
+
+Stage, validate, and merge partitions from bronze to silver.
+"""
 
 import re
 from dataclasses import dataclass
@@ -7,11 +10,11 @@ from pathlib import Path
 from doubleday.util.athena import get_query_row_count, run_query
 
 STEPS = [
-    ("clear_staging", "silver_clear_partition_from_staging_table.sql"),
+    ("clear_staging_pre", "silver_clear_partition_from_staging_table.sql"),
     ("load_partition", "silver_load_partition_into_staging_table.sql"),
     ("validate_staging", "silver_validate_staging_table.sql"),
     ("merge_partition", "silver_merge_partition_into_canonical_table.sql"),
-    ("clear_staging", "silver_clear_partition_from_staging_table.sql"),
+    ("clear_staging_post", "silver_clear_partition_from_staging_table.sql"),
 ]
 
 

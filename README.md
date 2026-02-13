@@ -19,9 +19,13 @@ make install
 
 ```
 src/doubleday/
-  lambdas/silver_load/
-    handler.py          # Lambda entry point — event parsing, metrics, response
-    pipeline.py         # Business logic — stage, validate, merge pipeline
+  lambdas/
+    silver_load/
+      handler.py        # Lambda entry point — event parsing, metrics, response
+      pipeline.py       # Business logic — stage, validate, merge pipeline
+    gold_load/
+      handler.py        # Lambda entry point — event parsing, metrics, response
+      pipeline.py       # Business logic — partition overwrite pipeline
   util/
     athena.py           # Shared Athena query execution utilities
   main.py              # CLI entry point
@@ -29,20 +33,23 @@ sql/
   ddl/
     silver_pitches.sql                              # Iceberg DDL (canonical)
     silver_pitches_staging.sql                      # Iceberg DDL (staging)
+    gold_pitches_shape_season.sql                   # Iceberg DDL (pitch shape aggs)
   pipeline/
     silver_clear_partition_from_staging_table.sql    # Delete partition from staging
     silver_load_partition_into_staging_table.sql     # Bronze -> staging INSERT
     silver_validate_staging_table.sql               # Duplicate key check on staging
     silver_merge_partition_into_canonical_table.sql  # Staging -> canonical MERGE
-    gold_pitches_shape_season.sql                   # Pitch shape aggregation query
+    gold_pitches_shape_season.sql                   # Delete + INSERT from silver
 terraform/
   environments/dev/     # Dev environment root (plan/apply from here)
   modules/
     s3/                 # Lakehouse bucket
-    glue/               # Database and table DDL
-    lambda/             # Silver load Lambda, IAM, packaging
+    glue/               # Database and table DDL (bronze, silver, gold)
+    lambda/             # Lambda functions (silver_load, gold_load), IAM, packaging
+    step_function/      # Pipeline Step Function, IAM, logging
 tests/
   test_main.py                              # Unit tests
+  test_gold_load_pipeline.py                # Gold load unit tests
   integration/
     test_silver_pitches_load.py             # Silver load integration tests
 util/
@@ -198,6 +205,64 @@ s3://doubleday-<env>-lakehouse/silver/
 └── silver_pitches_staging/    # Iceberg data + metadata
 ```
 
+## Data: Gold Layer
+
+The gold layer contains precomputed analytical tables built from silver. Each table is an Iceberg table partitioned by `season` and loaded via partition overwrite (DELETE + INSERT). Gold tables are rebuilt from scratch whenever the pipeline runs — there is no incremental merge.
+
+### Tables
+
+- **`gold_pitches_shape_season`** — per-pitcher, per-pitch-type season aggregations including movement, velocity, spin, and usage metrics. Minimum 50-pitch threshold per pitch type.
+
+### Table creation
+
+Tables are created via Athena DDL, triggered by `terraform apply`:
+
+```
+sql/ddl/gold_pitches_shape_season.sql
+```
+
+### Gold load pipeline
+
+The `gold-load` Lambda loads a single gold table for a given season. It reads a SQL file containing both a DELETE (clear the season partition) and an INSERT (rebuild from silver), splits them into statements, and executes each in order.
+
+### Invoking the Lambda
+
+```bash
+aws lambda invoke \
+  --function-name doubleday-dev-gold-load \
+  --payload '{"table_name": "gold_pitches_shape_season", "season": 2025}' \
+  --cli-binary-format raw-in-base64-out \
+  /dev/stdout
+```
+
+### S3 layout
+
+```
+s3://doubleday-<env>-lakehouse/gold/
+└── gold_pitches_shape_season/    # Iceberg data + metadata
+```
+
+## Pipeline Orchestration
+
+A Standard Step Function orchestrates the full ETL pipeline. Input:
+
+```json
+{"season": 2025, "game_dates": ["2025-05-14"], "gold_tables": ["gold_pitches_shape_season"]}
+```
+
+The pipeline:
+
+1. **Map over game_dates** (concurrency 5) — invoke `silver_load` for each date
+2. **Map over gold_tables** — invoke `gold_load` for each table with the season
+
+### Invoking the Step Function
+
+```bash
+aws stepfunctions start-execution \
+  --state-machine-arn arn:aws:states:<region>:<account>:stateMachine:doubleday-dev-pipeline \
+  --input '{"season": 2025, "game_dates": ["2025-05-14"], "gold_tables": ["gold_pitches_shape_season"]}'
+```
+
 ## Testing
 
 ### Unit tests
@@ -232,7 +297,8 @@ terraform apply
 | Module | Description |
 |--------|-------------|
 | `s3` | Lakehouse S3 bucket |
-| `glue` | Glue database, bronze/silver table DDL |
-| `lambda` | Silver load Lambda function, IAM role, zip packaging |
+| `glue` | Glue database, bronze/silver/gold table DDL |
+| `lambda` | Lambda functions (silver_load, gold_load), IAM roles, zip packaging |
+| `step_function` | Pipeline Step Function, IAM role, CloudWatch logging |
 
-The Lambda zip is built automatically by Terraform's `archive_file` data source. It bundles the full `doubleday` Python package from `src/` along with the silver SQL templates from `sql/`.
+All Lambda functions share a single deployment zip built by Terraform's `archive_file` data source. It bundles the full `doubleday` Python package from `src/` along with all SQL templates from `sql/pipeline/`. Each Lambda points at the same zip with a different handler entry point. Changing any Python or SQL file triggers a redeployment of all functions, keeping them in sync.
