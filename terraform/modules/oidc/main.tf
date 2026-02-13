@@ -106,6 +106,16 @@ resource "aws_iam_role_policy" "terraform_managed_resources" {
         ]
       },
       {
+        Sid    = "S3LakehouseObjects"
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+        ]
+        Resource = "arn:aws:s3:::${var.project}-*-lakehouse/*"
+      },
+      {
         Sid    = "Glue"
         Effect = "Allow"
         Action = [
