@@ -41,12 +41,18 @@ sql/
     silver_merge_partition_into_canonical_table.sql  # Staging -> canonical MERGE
     gold_pitches_shape_season.sql                   # Delete + INSERT from silver
 terraform/
-  environments/dev/     # Dev environment root (plan/apply from here)
+  environments/
+    dev/                # Dev environment root
+    prod/               # Prod environment root
   modules/
     s3/                 # Lakehouse bucket
     glue/               # Database and table DDL (bronze, silver, gold)
     lambda/             # Lambda functions (silver_load, gold_load), IAM, packaging
     step_function/      # Pipeline Step Function, IAM, logging
+    oidc/               # GitHub Actions OIDC provider and IAM role
+.github/workflows/
+  terraform-plan.yml    # PR: plan dev + prod
+  terraform-apply.yml   # Merge to main: apply dev then prod
 tests/
   test_main.py                              # Unit tests
   test_gold_load_pipeline.py                # Gold load unit tests
@@ -284,10 +290,10 @@ WHERE season = 2025
 
 ## Infrastructure
 
-Infrastructure is managed with Terraform. The dev environment is the deployment root:
+Infrastructure is managed with Terraform with two environments (dev, prod) in the same AWS account.
 
 ```bash
-cd terraform/environments/dev
+cd terraform/environments/dev   # or prod
 terraform init
 terraform plan
 terraform apply
@@ -301,5 +307,26 @@ terraform apply
 | `glue` | Glue database, bronze/silver/gold table DDL |
 | `lambda` | Lambda functions (silver_load, gold_load), IAM roles, zip packaging |
 | `step_function` | Pipeline Step Function, IAM role, CloudWatch logging |
+| `oidc` | GitHub Actions OIDC provider and IAM role (dev only, account-level) |
 
 All Lambda functions share a single deployment zip built by Terraform's `archive_file` data source. It bundles the full `doubleday` Python package from `src/` along with all SQL templates from `sql/pipeline/`. Each Lambda points at the same zip with a different handler entry point. Changing any Python or SQL file triggers a redeployment of all functions, keeping them in sync.
+
+## Deployment
+
+Infrastructure changes are deployed automatically via GitHub Actions using OIDC for AWS authentication (no long-lived credentials).
+
+### CI/CD workflows
+
+- **`terraform-plan.yml`** — runs on PRs that touch `terraform/`. Plans both dev and prod, posts output as PR comments.
+- **`terraform-apply.yml`** — runs on push to `main` that touches `terraform/`. Applies dev first, then prod.
+
+### Bootstrap (one-time setup)
+
+The OIDC resources must exist before GitHub Actions can authenticate. To bootstrap:
+
+1. `cd terraform/environments/dev && terraform apply` — creates the OIDC provider and IAM role
+2. `cd terraform/environments/prod && terraform apply` — creates prod resources
+3. Copy the OIDC role ARN from the `module.oidc.role_arn` output
+4. Add it as the GitHub Actions secret `AWS_ROLE_ARN`
+
+After bootstrap, merges to `main` auto-deploy both environments.
