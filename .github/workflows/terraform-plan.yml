@@ -39,6 +39,7 @@ jobs:
 
   plan-prod:
     name: Plan (prod)
+    needs: apply-dev
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
