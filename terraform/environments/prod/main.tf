@@ -42,4 +42,5 @@ module "step_function" {
   gold_load_function_arn       = module.lambda.gold_load_function_arn
   bronze_load_function_arn     = module.lambda.bronze_load_function_arn
   validate_input_function_arn  = module.lambda.validate_input_function_arn
+  clear_staging_function_arn   = module.lambda.clear_staging_function_arn
 }

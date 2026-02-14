@@ -139,7 +139,12 @@ CREATE TABLE IF NOT EXISTS silver_pitches_staging (
 
   -- partition columns
   season                                     int,
-  game_date                                  date
+  game_date                                  date,
+
+  -- per-run isolation
+  run_id                                     string,
+  batch_id                                   string,
+  loaded_at                                  timestamp
 )
 PARTITIONED BY (season, game_date)
 LOCATION 's3://{lakehouse_bucket}/silver/silver_pitches_staging/'

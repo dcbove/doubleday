@@ -30,6 +30,7 @@ resource "aws_iam_role_policy" "pipeline" {
           var.bronze_load_function_arn,
           var.silver_load_function_arn,
           var.gold_load_function_arn,
+          var.clear_staging_function_arn,
         ]
       },
       {
@@ -80,6 +81,7 @@ resource "aws_sfn_state_machine" "pipeline" {
           "season.$"         = "$.Payload.season"
           "game_dates.$"     = "$.Payload.game_dates"
           "force_download.$" = "$.Payload.force_download"
+          "batch_id.$"       = "$.Payload.batch_id"
         }
         ResultPath = "$"
         Next       = "BronzeLoadMap"
@@ -120,7 +122,9 @@ resource "aws_sfn_state_machine" "pipeline" {
         ItemsPath  = "$.game_dates"
         MaxConcurrency = 5
         Parameters = {
-          "partition_name.$" = "States.Format('season={}/game_date={}', $.season, $$.Map.Item.Value)"
+          "season.$"    = "$.season"
+          "game_date.$" = "$$.Map.Item.Value"
+          "batch_id.$"  = "$.batch_id"
         }
         Iterator = {
           StartAt = "SilverLoad"
@@ -135,6 +139,19 @@ resource "aws_sfn_state_machine" "pipeline" {
               ResultPath = "$.silver_result"
               End        = true
             }
+          }
+        }
+        ResultPath = null
+        Next       = "ClearStaging"
+      }
+
+      ClearStaging = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::lambda:invoke"
+        Parameters = {
+          FunctionName = var.clear_staging_function_arn
+          Payload = {
+            "batch_id.$" = "$.batch_id"
           }
         }
         ResultPath = null

@@ -27,3 +27,8 @@ variable "validate_input_function_arn" {
   description = "ARN of the validate input Lambda function"
   type        = string
 }
+
+variable "clear_staging_function_arn" {
+  description = "ARN of the clear staging Lambda function"
+  type        = string
+}

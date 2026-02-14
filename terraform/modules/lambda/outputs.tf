@@ -37,3 +37,13 @@ output "validate_input_function_arn" {
   description = "ARN of the validate input Lambda function"
   value       = aws_lambda_function.validate_input.arn
 }
+
+output "clear_staging_function_name" {
+  description = "Name of the clear staging Lambda function"
+  value       = aws_lambda_function.clear_staging.function_name
+}
+
+output "clear_staging_function_arn" {
+  description = "ARN of the clear staging Lambda function"
+  value       = aws_lambda_function.clear_staging.arn
+}

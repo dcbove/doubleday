@@ -28,7 +28,10 @@ INSERT INTO silver_pitches_staging (
   pitcher_days_since_prev_game, batter_days_since_prev_game,
   pitcher_days_until_next_game, batter_days_until_next_game,
   umpire, sv_id,
-  season, game_date
+  season, game_date,
+  run_id,
+  batch_id,
+  loaded_at
 )
 SELECT
   -- identifiers
@@ -169,7 +172,12 @@ SELECT
 
   -- partition columns
   season,
-  game_date
+  game_date,
+
+  -- per-run isolation
+  '{run_id}' AS run_id,
+  '{batch_id}' AS batch_id,
+  CURRENT_TIMESTAMP AS loaded_at
 
 FROM bronze_statcast
 WHERE season = {season}

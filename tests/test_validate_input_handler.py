@@ -16,6 +16,15 @@ class TestValidateInputHandler:
         assert result["season"] == 2024
         assert result["game_dates"] == ["2024-03-01", "2024-03-02"]
 
+    def test_batch_id_is_generated(self):
+        """Output includes a batch_id string."""
+        event = {"season": 2024, "game_dates": ["2024-03-01"]}
+        result = handler(event, None)
+
+        assert "batch_id" in result
+        assert isinstance(result["batch_id"], str)
+        assert len(result["batch_id"]) > 0
+
     def test_missing_force_download_defaults_to_false(self):
         """Missing force_download defaults to False."""
         event = {"season": 2024, "game_dates": ["2024-03-01"]}
