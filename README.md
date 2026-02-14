@@ -371,8 +371,10 @@ Infrastructure changes are deployed automatically via GitHub Actions using OIDC 
 
 ### CI/CD workflows
 
-- **`terraform-plan.yml`** — runs on PRs that touch `terraform/`. Plans both dev and prod, posts output as PR comments.
-- **`terraform-apply.yml`** — runs on push to `main` that touches `terraform/`. Applies dev first, then prod.
+- **`terraform-plan.yml`** — runs on PRs that touch `terraform/`, `src/`, or `sql/`. Applies dev and plans prod (posting the plan as a PR comment).
+- **`terraform-apply.yml`** — runs on push to `main` that touches `terraform/`, `src/`, or `sql/`. Applies prod.
+
+Dev is deployed during the PR lifecycle so changes can be tested before merging. Prod is deployed only after merging to `main`.
 
 ### Bootstrap (one-time setup)
 
@@ -383,4 +385,4 @@ The OIDC resources must exist before GitHub Actions can authenticate. To bootstr
 3. Copy the OIDC role ARN from the `module.oidc.role_arn` output
 4. Add it as the GitHub Actions secret `AWS_ROLE_ARN`
 
-After bootstrap, merges to `main` auto-deploy both environments.
+After bootstrap, PRs auto-deploy dev and merges to `main` auto-deploy prod.
