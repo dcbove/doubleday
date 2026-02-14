@@ -1,5 +1,6 @@
 """Lambda handler for validate_input — validate dates and normalize input."""
 
+import uuid
 from typing import Any
 
 
@@ -33,4 +34,5 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         "season": season,
         "game_dates": game_dates,
         "force_download": force_download,
+        "batch_id": str(uuid.uuid4()),
     }

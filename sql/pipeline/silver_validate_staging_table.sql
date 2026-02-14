@@ -2,7 +2,9 @@ SELECT COUNT(*) AS duplicate_keys
 FROM (
     SELECT game_pk, at_bat_number, pitch_number
     FROM silver_pitches_staging
-    WHERE season = {season} AND game_date = DATE '{game_date}'
+    WHERE season = {season}
+      AND game_date = DATE '{game_date}'
+      AND run_id = '{run_id}'
     GROUP BY game_pk, at_bat_number, pitch_number
     HAVING COUNT(*) > 1
 )

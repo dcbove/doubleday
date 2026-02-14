@@ -18,7 +18,7 @@ Statcast ETL pipeline: Bronze (raw CSV) → Silver (typed Iceberg) → Gold (agg
 Each Lambda lives in `src/doubleday/lambdas/<name>/` with:
 - `__init__.py` — module docstring only
 - `handler.py` — Lambda entry point. Parses event, calls pipeline, emits Powertools metrics, returns `{statusCode, body}`. Module-level clients/config from env vars.
-- `pipeline.py` — Business logic. Returns a `@dataclass LoadResult`. No Lambda runtime dependencies. Exception: `validate_input` has no pipeline (logic is simple enough for handler alone).
+- `pipeline.py` — Business logic. Returns a `@dataclass LoadResult`. No Lambda runtime dependencies. Exception: `validate_input` and `clear_staging` have no pipeline (logic is simple enough for handler alone).
 
 ### Terraform Pattern
 

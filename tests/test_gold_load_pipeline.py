@@ -8,7 +8,6 @@ from doubleday.lambdas.gold_load.pipeline import (
     LoadResult,
     load_sql,
     load_table,
-    split_statements,
 )
 
 
@@ -23,55 +22,18 @@ class TestLoadSql:
         assert load_sql(tmp_path, "test.sql") == "SELECT 1"
 
 
-class TestSplitStatements:
-    """Tests for split_statements."""
-
-    def test_splits_on_semicolons(self):
-        """Splits SQL into individual statements."""
-        sql = "DELETE FROM t WHERE x = 1;\nINSERT INTO t SELECT 1;"
-        result = split_statements(sql)
-        assert len(result) == 2
-        assert "DELETE" in result[0]
-        assert "INSERT" in result[1]
-
-    def test_strips_whitespace(self):
-        """Strips leading and trailing whitespace from statements."""
-        sql = "  DELETE FROM t;  \n  INSERT INTO t SELECT 1;  "
-        result = split_statements(sql)
-        assert result[0] == "DELETE FROM t"
-        assert result[1] == "INSERT INTO t SELECT 1"
-
-    def test_skips_empty_fragments(self):
-        """Ignores empty fragments from trailing semicolons."""
-        sql = "DELETE FROM t;\n"
-        result = split_statements(sql)
-        assert len(result) == 1
-
-    def test_skips_comment_only_fragments(self):
-        """Ignores fragments that are only comments."""
-        sql = (
-            "-- Step 1: delete\nDELETE FROM t;\n"
-            "-- Step 2: insert\nINSERT INTO t SELECT 1;"
-        )
-        result = split_statements(sql)
-        assert len(result) == 2
-        assert "DELETE" in result[0]
-        assert "INSERT" in result[1]
-
-
 class TestLoadTable:
     """Tests for load_table."""
 
     @pytest.fixture()
     def sql_dir(self, tmp_path):
-        """Create a minimal gold SQL file for testing."""
-        sql = (
-            "-- Step 1\n"
-            "DELETE FROM gold_test WHERE season = {season};\n"
-            "-- Step 2\n"
-            "INSERT INTO gold_test SELECT * FROM silver WHERE season = {season};"
+        """Create minimal gold SQL files for testing."""
+        (tmp_path / "gold_test_delete.sql").write_text(
+            "DELETE FROM gold_test WHERE season = {season}"
         )
-        (tmp_path / "gold_test.sql").write_text(sql)
+        (tmp_path / "gold_test_insert.sql").write_text(
+            "INSERT INTO gold_test SELECT * FROM silver WHERE season = {season}"
+        )
         return tmp_path
 
     @patch("doubleday.lambdas.gold_load.pipeline.get_query_row_count")

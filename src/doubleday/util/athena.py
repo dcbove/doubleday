@@ -1,37 +1,48 @@
 """Athena query execution and result-reading utilities."""
 
+import random
 import time
 
 
 def run_query(client, sql: str, database: str, output_bucket: str) -> str:
-    """Submit a query to Athena and wait for completion.
+    """Submit a query to Athena and wait for completion. Returns QueryExecutionId."""
+    max_attempts = 8
 
-    Returns the query execution ID.
-    """
-    response = client.start_query_execution(
-        QueryString=sql,
-        QueryExecutionContext={"Database": database},
-        ResultConfiguration={"OutputLocation": f"s3://{output_bucket}/"},
-    )
-    execution_id: str = response["QueryExecutionId"]
+    for attempt in range(1, max_attempts + 1):
+        response = client.start_query_execution(
+            QueryString=sql,
+            QueryExecutionContext={"Database": database},
+            ResultConfiguration={"OutputLocation": f"s3://{output_bucket}/"},
+        )
+        execution_id: str = response["QueryExecutionId"]
 
-    while True:
-        result = client.get_query_execution(QueryExecutionId=execution_id)
-        state = result["QueryExecution"]["Status"]["State"]
+        while True:
+            result = client.get_query_execution(QueryExecutionId=execution_id)
+            state = result["QueryExecution"]["Status"]["State"]
 
-        if state == "SUCCEEDED":
-            return execution_id
+            if state == "SUCCEEDED":
+                return execution_id
 
-        if state in ("FAILED", "CANCELLED"):
-            reason = result["QueryExecution"]["Status"].get(
-                "StateChangeReason", "Unknown"
-            )
-            raise RuntimeError(f"Query {state}: {reason}")
+            if state in ("FAILED", "CANCELLED"):
+                reason = result["QueryExecution"]["Status"].get(
+                    "StateChangeReason", "Unknown"
+                )
 
-        # Athena has no push notification — poll get_query_execution until done.
-        # 2s is responsive enough for typical 3-10s queries
-        # and well under API throttle limits.
-        time.sleep(2)
+                # Retry only Iceberg commit conflicts
+                if "ICEBERG_COMMIT_ERROR" in reason and attempt < max_attempts:
+                    # exponential backoff + jitter
+                    base = min(30.0, 1.0 * (2 ** (attempt - 1)))
+                    time.sleep(random.uniform(0.5 * base, 1.5 * base))
+                    break  # retry: start a new query execution
+
+                raise RuntimeError(
+                    f"Query {state}: {reason} " f"(attempt {attempt}/{max_attempts})"
+                )
+
+            time.sleep(2)
+
+    # logically unreachable, but keeps type-checkers happy
+    raise RuntimeError("run_query: exhausted retries unexpectedly")
 
 
 def get_query_row_count(client, execution_id: str) -> int:

@@ -1,8 +1,3 @@
--- gold_pitches_shape_season: partition overwrite for a single season
--- Step 1: delete existing partition
-DELETE FROM gold_pitches_shape_season WHERE season = {season};
-
--- Step 2: insert aggregated data from silver
 INSERT INTO gold_pitches_shape_season
 SELECT
     pitcher,
@@ -75,4 +70,4 @@ GROUP BY
     season,
     pitcher,
     pitch_type
-HAVING count(*) >= 20;
+HAVING count(*) >= 20

@@ -10,10 +10,7 @@ from aws_lambda_powertools import Metrics
 from aws_lambda_powertools.metrics import MetricUnit
 
 import doubleday
-from doubleday.lambdas.silver_load.pipeline import (
-    load_partition,
-    parse_partition_name,
-)
+from doubleday.lambdas.silver_load.pipeline import load_partition
 
 athena = boto3.client("athena")
 metrics = Metrics()
@@ -26,18 +23,21 @@ SQL_DIR = Path(doubleday.__file__).parent / "sql"
 @metrics.log_metrics
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """Load a single silver partition, emit metrics, and return results."""
-    partition_name = event["partition_name"]
-    season, game_date = parse_partition_name(partition_name)
+    season = event["season"]
+    game_date = event["game_date"]
+    batch_id = event["batch_id"]
 
     metrics.add_dimension(name="season", value=str(season))
 
-    result = load_partition(athena, DATABASE, OUTPUT_BUCKET, SQL_DIR, season, game_date)
+    result = load_partition(
+        athena, DATABASE, OUTPUT_BUCKET, SQL_DIR, season, game_date, batch_id
+    )
 
     metrics.add_metric(
         name="RecordsLoaded", unit=MetricUnit.Count, value=result.records_loaded
     )
     metrics.add_metric(
-        name="RecordsMerged", unit=MetricUnit.Count, value=result.records_merged
+        name="RecordsInserted", unit=MetricUnit.Count, value=result.records_inserted
     )
     metrics.add_metric(name="PartitionsInserted", unit=MetricUnit.Count, value=1)
 
@@ -45,11 +45,10 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         "statusCode": 200,
         "body": json.dumps(
             {
-                "partition_name": partition_name,
                 "season": season,
                 "game_date": game_date,
                 "records_loaded": result.records_loaded,
-                "records_merged": result.records_merged,
+                "records_inserted": result.records_inserted,
                 "results": result.results,
             }
         ),

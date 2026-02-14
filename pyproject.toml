@@ -42,6 +42,9 @@ convention = "google"
 markers = [
     "integration: tests that call real AWS services",
 ]
+filterwarnings = [
+    "ignore:No application metrics to publish:UserWarning",
+]
 
 [tool.mypy]
 python_version = "3.12"

@@ -21,30 +21,34 @@ make install
 src/doubleday/
   lambdas/
     validate_input/
-      handler.py        # Lambda entry point — validate and normalize input
+      handler.py        # Lambda entry point — validate input, generate batch_id
     bronze_load/
       handler.py        # Lambda entry point — event parsing, metrics, response
       pipeline.py       # Business logic — download from Baseball Savant to S3
     silver_load/
       handler.py        # Lambda entry point — event parsing, metrics, response
-      pipeline.py       # Business logic — stage, validate, merge pipeline
+      pipeline.py       # Business logic — stage, validate, replace pipeline
     gold_load/
       handler.py        # Lambda entry point — event parsing, metrics, response
       pipeline.py       # Business logic — partition overwrite pipeline
+    clear_staging/
+      handler.py        # Lambda entry point — bulk delete staging rows by batch_id
   util/
     athena.py           # Shared Athena query execution utilities
-  main.py              # CLI entry point
+  main.py               # CLI entry point
 sql/
   ddl/
-    silver_pitches.sql                              # Iceberg DDL (canonical)
-    silver_pitches_staging.sql                      # Iceberg DDL (staging)
-    gold_pitches_shape_season.sql                   # Iceberg DDL (pitch shape aggs)
+    silver_pitches.sql                                # Iceberg DDL (canonical)
+    silver_pitches_staging.sql                        # Iceberg DDL (staging)
+    gold_pitches_shape_season.sql                     # Iceberg DDL (pitch shape aggs)
   pipeline/
-    silver_clear_partition_from_staging_table.sql    # Delete partition from staging
-    silver_load_partition_into_staging_table.sql     # Bronze -> staging INSERT
-    silver_validate_staging_table.sql               # Duplicate key check on staging
-    silver_merge_partition_into_canonical_table.sql  # Staging -> canonical MERGE
-    gold_pitches_shape_season.sql                   # Delete + INSERT from silver
+    silver_load_partition_into_staging_table.sql       # Bronze -> staging INSERT
+    silver_validate_staging_table.sql                  # Duplicate key check on staging
+    silver_delete_partition_from_canonical_table.sql   # Delete partition from canonical
+    silver_insert_partition_into_canonical_table.sql   # Staging -> canonical INSERT
+    silver_clear_partition_from_staging_table.sql      # Bulk delete staging by batch_id
+    gold_pitches_shape_season_delete.sql              # Delete gold partition
+    gold_pitches_shape_season_insert.sql              # INSERT from silver
 terraform/
   environments/
     dev/                # Dev environment root
@@ -52,7 +56,7 @@ terraform/
   modules/
     s3/                 # Lakehouse bucket
     glue/               # Database and table DDL (bronze, silver, gold)
-    lambda/             # Lambda functions (silver_load, gold_load), IAM, packaging
+    lambda/             # Lambda functions, IAM, packaging
     step_function/      # Pipeline Step Function, IAM, logging
     oidc/               # GitHub Actions OIDC provider and IAM role
 .github/workflows/
@@ -62,10 +66,12 @@ tests/
   test_main.py                              # Unit tests
   test_validate_input_handler.py            # Validate input unit tests
   test_bronze_load_pipeline.py              # Bronze load unit tests
+  test_silver_load_pipeline.py              # Silver load unit tests
   test_gold_load_pipeline.py                # Gold load unit tests
+  test_clear_staging_handler.py             # Clear staging unit tests
   integration/
     test_silver_pitches_load.py             # Silver load integration tests
-util/
+scripts/
   download_year.sh      # Download Statcast CSVs from Baseball Savant
 ```
 
@@ -105,7 +111,7 @@ The bronze layer is raw, unmodified Statcast pitch-by-pitch CSV data downloaded 
 ### Download
 
 ```bash
-bash util/download_year.sh <year>
+bash scripts/download_year.sh <year>
 ```
 
 One CSV per day across the MLB season (March through November). Baseball Savant caps exports at ~25,000 rows per request; the script warns if any file hits this limit.
@@ -157,8 +163,8 @@ The silver layer is the canonical, typed source of truth for all game types (reg
 
 ### Tables
 
-- **`silver_pitches`** — canonical pitch-by-pitch table. Supports idempotent loads via MERGE on `(game_pk, at_bat_number, pitch_number)`.
-- **`silver_pitches_staging`** — transient scratch table with the same schema. Used to stage one day's data at a time before merging into canonical.
+- **`silver_pitches`** — canonical pitch-by-pitch table. Partitioned by `(season, game_date)`. Each load replaces the full partition via DELETE + INSERT.
+- **`silver_pitches_staging`** — transient scratch table with the same schema plus `run_id` and `batch_id` columns. Used to stage one day's data at a time before replacing canonical.
 
 ### Table creation
 
@@ -175,20 +181,28 @@ Schema evolution (adding columns, changing types) should be done via Athena `ALT
 
 The `silver_load` Lambda loads a single `(season, game_date)` partition from bronze to silver. The pipeline runs these steps in order:
 
-1. **Clear staging** — delete the partition from `silver_pitches_staging`
-2. **Load partition** — INSERT from `bronze_statcast` into `silver_pitches_staging` with type casting
-3. **Validate staging** — check for duplicate `(game_pk, at_bat_number, pitch_number)` keys; fail before merge if any found
-4. **Merge partition** — MERGE from staging into `silver_pitches` (insert new rows, update existing)
-5. **Clear staging** — clean up the staging table
+1. **Load partition** — INSERT from `bronze_statcast` into `silver_pitches_staging` with type casting, tagged with `run_id` and `batch_id`
+2. **Validate staging** — check for duplicate `(game_pk, at_bat_number, pitch_number)` keys; fail before canonical write if any found
+3. **Delete canonical** — DELETE the partition from `silver_pitches`
+4. **Insert canonical** — INSERT from staging into `silver_pitches`
 
-If validation fails, the canonical table is untouched.
+If validation fails, the canonical table is untouched. Staging cleanup is handled separately by the `clear_staging` Lambda after all silver loads complete (see [Pipeline Orchestration](#pipeline-orchestration)).
+
+### Isolation: `run_id` and `batch_id`
+
+Each staging row is tagged with two identifiers:
+
+- **`run_id`** (per-Lambda, UUID) — isolates each Lambda invocation's rows within staging. Validate and insert queries filter by `run_id`, so concurrent Lambda invocations on different partitions never interfere with each other in staging.
+- **`batch_id`** (per-Step Function execution, UUID) — groups all staging rows from one pipeline execution. The `clear_staging` Lambda uses `batch_id` to bulk-delete all staging data in a single query after the silver load map completes.
+
+**Concurrency constraint:** the DELETE + INSERT into canonical is not atomic. Two concurrent executions writing to the same `(season, game_date)` partition could interleave and produce duplicates. The Step Function ensures each partition is processed by exactly one Lambda within an execution. Overlapping executions on the same partition are an operational concern — don't run two backfills that overlap on the same dates concurrently.
 
 ### Invoking the silver_load Lambda
 
 ```bash
 aws lambda invoke \
   --function-name doubleday-dev-silver-load \
-  --payload '{"partition_name": "season=2024/game_date=2024-03-01"}' \
+  --payload '{"season": 2024, "game_date": "2024-03-01", "batch_id": "manual-test"}' \
   --cli-binary-format raw-in-base64-out \
   /dev/stdout
 ```
@@ -219,7 +233,7 @@ sql/ddl/gold_pitches_shape_season.sql
 
 ### Gold load pipeline
 
-The `gold_load` Lambda loads a single gold table for a given season. It reads a SQL file containing both a DELETE (clear the season partition) and an INSERT (rebuild from silver), splits them into statements, and executes each in order.
+The `gold_load` Lambda loads a single gold table for a given season. It reads a pair of SQL files — a DELETE (clear the season partition) and an INSERT (rebuild from silver) — and executes each in order.
 
 ### Invoking the gold_load Lambda
 
@@ -242,11 +256,12 @@ s3://doubleday-<env>-lakehouse/gold/
 
 A Standard Step Function orchestrates the full ETL pipeline:
 
-1. **ValidateInput** — validate all game_date years match season, default `force_download` to `false`
+1. **ValidateInput** — validate all game_date years match season, default `force_download` to `false`, generate `batch_id`
 2. **BronzeLoadMap** (concurrency 5) — invoke `bronze_load` for each date (download from Baseball Savant to S3)
-3. **SilverLoadMap** (concurrency 5) — invoke `silver_load` for each date
-4. **SetGoldTables** — inject hardcoded gold table list
-5. **GoldLoadMap** (concurrency 1) — invoke `gold_load` for each table with the season
+3. **SilverLoadMap** (concurrency 5) — invoke `silver_load` for each date, passing `batch_id`
+4. **ClearStaging** — invoke `clear_staging` to bulk-delete all staging rows for this `batch_id`
+5. **SetGoldTables** — inject hardcoded gold table list
+6. **GoldLoadMap** (concurrency 1) — invoke `gold_load` for each table with the season
 
 ### Invoking the Step Function
 
@@ -269,15 +284,15 @@ aws stepfunctions start-execution \
 To process an entire season (March 1–Nov 30), use the backfill script:
 
 ```bash
-bash util/backfill_season.sh 2024        # defaults to dev
-bash util/backfill_season.sh 2024 prod   # specify environment
+bash scripts/backfill_season.sh 2024        # defaults to dev
+bash scripts/backfill_season.sh 2024 prod   # specify environment
 ```
 
 This generates all ~275 dates in the range and starts a single Step Function execution. Bronze load skips any dates already in S3 (unless `force_download` is set), so backfills are safe to re-run — only silver and gold do real work for previously downloaded data.
 
-### Why partition overwrite
+### Why partition overwrite (DELETE + INSERT) instead of MERGE
 
-Statcast game data is effectively immutable once finalized. Our ingestion unit is already aligned to a natural partition boundary — `(season, game_date)` for silver, `(season)` for gold — and reprocessing means "replace that partition," not "surgically edit individual rows." Overwrite keeps the pipeline deterministic, simplifies correctness reasoning, and minimizes operational surface area.
+Statcast game data is effectively immutable once finalized. Our ingestion unit is already aligned to a natural partition boundary — `(season, game_date)` for silver, `(season)` for gold — and reprocessing means "replace that partition," not "surgically edit individual rows." MERGE (update matched, insert unmatched) would leave behind rows that disappeared from the source — if Statcast retroactively drops a pitch, MERGE can't detect the absence. DELETE + INSERT guarantees canonical exactly mirrors the source for any reprocessed partition.
 
 ### Why Standard over Express Step Functions
 
@@ -285,7 +300,7 @@ Standard Step Functions support executions up to one year and have detailed exec
 
 ### Why a single parameterized gold Lambda
 
-One `gold_load` Lambda accepts a table name parameter and executes the corresponding SQL. Adding a new gold table means adding a SQL file and a Step Function entry — no Lambda code changes.
+One `gold_load` Lambda accepts a table name parameter and executes the corresponding SQL files (`{table_name}_delete.sql` and `{table_name}_insert.sql`). Adding a new gold table means adding two SQL files and a Step Function entry — no Lambda code changes.
 
 ### Why the Step Function is the single entry point
 
@@ -344,7 +359,7 @@ terraform apply
 |--------|-------------|
 | `s3` | Lakehouse S3 bucket |
 | `glue` | Glue database, bronze/silver/gold table DDL |
-| `lambda` | Lambda functions (validate_input, bronze_load, silver_load, gold_load), IAM roles, zip packaging |
+| `lambda` | Lambda functions (validate_input, bronze_load, silver_load, gold_load, clear_staging), IAM roles, zip packaging |
 | `step_function` | Pipeline Step Function, IAM role, CloudWatch logging |
 | `oidc` | GitHub Actions OIDC provider and IAM role (dev only, account-level) |
 
