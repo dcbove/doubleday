@@ -377,6 +377,8 @@ resource "aws_iam_role_policy" "terraform_managed_resources" {
           "cognito-idp:CreateUserPool",
           "cognito-idp:DeleteUserPool",
           "cognito-idp:DescribeUserPool",
+          "cognito-idp:GetUserPoolMfaConfig",
+          "cognito-idp:SetUserPoolMfaConfig",
           "cognito-idp:UpdateUserPool",
           "cognito-idp:CreateUserPoolClient",
           "cognito-idp:DeleteUserPoolClient",
