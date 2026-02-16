@@ -57,6 +57,7 @@ builds/
 
 # Data
 data/
+.env
 
 # Claude Code
 .claude/
