@@ -44,12 +44,15 @@ resource "aws_lambda_function" "authorizer" {
   memory_size      = 128
   filename         = var.lambda_package_path
   source_code_hash = var.lambda_package_hash
+  layers           = [var.powertools_layer_arn]
 
   environment {
     variables = {
-      COGNITO_USER_POOL_ID = var.cognito_user_pool_id
-      COGNITO_REGION       = var.region
-      COGNITO_CLIENT_ID    = var.cognito_client_id
+      COGNITO_USER_POOL_ID         = var.cognito_user_pool_id
+      COGNITO_REGION               = var.region
+      COGNITO_CLIENT_ID            = var.cognito_client_id
+      POWERTOOLS_METRICS_NAMESPACE = "Doubleday"
+      POWERTOOLS_SERVICE_NAME      = "api_authorizer"
     }
   }
 }

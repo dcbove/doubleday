@@ -6,13 +6,14 @@ from pathlib import Path
 from typing import Any
 
 import boto3
-from aws_lambda_powertools import Metrics
+from aws_lambda_powertools import Logger, Metrics
 from aws_lambda_powertools.metrics import MetricUnit
 
 import doubleday
 from doubleday.pipeline.silver_load.pipeline import load_partition
 
 athena = boto3.client("athena")
+logger = Logger()
 metrics = Metrics()
 
 DATABASE = os.environ["GLUE_DATABASE"]
@@ -20,6 +21,7 @@ OUTPUT_BUCKET = os.environ["ATHENA_OUTPUT_BUCKET"]
 SQL_DIR = Path(doubleday.__file__).parent / "sql"
 
 
+@logger.inject_lambda_context
 @metrics.log_metrics
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """Load a single silver partition, emit metrics, and return results."""

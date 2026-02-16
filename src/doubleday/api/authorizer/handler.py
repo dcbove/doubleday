@@ -6,7 +6,10 @@ from typing import Any
 from urllib.request import urlopen
 
 import jwt
+from aws_lambda_powertools import Logger
 from jwt.algorithms import RSAAlgorithm
+
+logger = Logger()
 
 COGNITO_USER_POOL_ID = os.environ["COGNITO_USER_POOL_ID"]
 COGNITO_REGION = os.environ["COGNITO_REGION"]
@@ -61,6 +64,7 @@ def _generate_policy(principal_id: str, effect: str, resource: str) -> dict[str,
     }
 
 
+@logger.inject_lambda_context
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """Validate a Bearer token and return an IAM policy document.
 
@@ -76,6 +80,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     method_arn = event["methodArn"]
 
     if not token_string.startswith("Bearer "):
+        logger.warning("Auth denied — missing Bearer prefix")
         return _generate_policy("anonymous", "Deny", method_arn)
 
     token = token_string[7:]
@@ -90,6 +95,8 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             audience=COGNITO_CLIENT_ID,
         )
         principal_id = claims.get("sub", "unknown")
+        logger.info("Auth allowed", extra={"principal": principal_id})
         return _generate_policy(principal_id, "Allow", method_arn)
     except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, KeyError):
+        logger.warning("Auth denied — invalid token")
         return _generate_policy("anonymous", "Deny", method_arn)

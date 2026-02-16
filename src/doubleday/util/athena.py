@@ -3,6 +3,10 @@
 import random
 import time
 
+from aws_lambda_powertools import Logger
+
+logger = Logger(child=True)
+
 
 def run_query(client, sql: str, database: str, output_bucket: str) -> str:
     """Submit a query to Athena and wait for completion. Returns QueryExecutionId."""
@@ -15,6 +19,7 @@ def run_query(client, sql: str, database: str, output_bucket: str) -> str:
             ResultConfiguration={"OutputLocation": f"s3://{output_bucket}/"},
         )
         execution_id: str = response["QueryExecutionId"]
+        logger.info("Query submitted", extra={"execution_id": execution_id})
 
         while True:
             result = client.get_query_execution(QueryExecutionId=execution_id)
@@ -32,9 +37,27 @@ def run_query(client, sql: str, database: str, output_bucket: str) -> str:
                 if "ICEBERG_COMMIT_ERROR" in reason and attempt < max_attempts:
                     # exponential backoff + jitter
                     base = min(30.0, 1.0 * (2 ** (attempt - 1)))
+                    logger.warning(
+                        "Iceberg commit conflict, retrying",
+                        extra={
+                            "attempt": attempt,
+                            "max_attempts": max_attempts,
+                            "execution_id": execution_id,
+                        },
+                    )
                     time.sleep(random.uniform(0.5 * base, 1.5 * base))
                     break  # retry: start a new query execution
 
+                logger.error(
+                    "Query failed",
+                    extra={
+                        "state": state,
+                        "reason": reason,
+                        "attempt": attempt,
+                        "max_attempts": max_attempts,
+                        "execution_id": execution_id,
+                    },
+                )
                 raise RuntimeError(
                     f"Query {state}: {reason} " f"(attempt {attempt}/{max_attempts})"
                 )

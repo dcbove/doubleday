@@ -7,13 +7,14 @@ from pathlib import Path
 from typing import Any
 
 import boto3
-from aws_lambda_powertools import Metrics
+from aws_lambda_powertools import Logger, Metrics
 from aws_lambda_powertools.metrics import MetricUnit
 
 import doubleday
 from doubleday.api.query_pitches.pipeline import query_pitches
 
 athena = boto3.client("athena")
+logger = Logger()
 metrics = Metrics()
 
 DATABASE = os.environ["GLUE_DATABASE"]
@@ -36,6 +37,7 @@ def _error_response(status_code: int, message: str) -> dict[str, Any]:
     }
 
 
+@logger.inject_lambda_context
 @metrics.log_metrics
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """Handle GET /pitchers/{pitcher_id}/pitches requests."""

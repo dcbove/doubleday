@@ -3,7 +3,11 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+from aws_lambda_powertools import Logger
+
 from doubleday.util.athena import get_query_row_count, run_query
+
+logger = Logger(child=True)
 
 STEPS = [
     ("delete_partition", "{table_name}_delete.sql"),
@@ -41,13 +45,19 @@ def load_table(
     for step_name, sql_file_template in STEPS:
         sql_file = sql_file_template.format(table_name=table_name)
         sql = load_sql(sql_dir, sql_file).format(season=season)
-        print(f"Running {step_name}: {sql_file}")
+        logger.info("Running step", extra={"step": step_name, "sql_file": sql_file})
         execution_id = run_query(client, sql, database, output_bucket)
         results[step_name] = execution_id
-        print(f"  Completed: {execution_id}")
+        logger.info(
+            "Step completed",
+            extra={"step": step_name, "execution_id": execution_id},
+        )
 
         if step_name == "insert_partition":
             records_inserted = get_query_row_count(client, execution_id)
-            print(f"  Records inserted: {records_inserted}")
+            logger.info(
+                "Records inserted",
+                extra={"records_inserted": records_inserted},
+            )
 
     return LoadResult(records_inserted=records_inserted, results=results)

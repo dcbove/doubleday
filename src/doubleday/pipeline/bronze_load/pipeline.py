@@ -3,6 +3,10 @@
 from dataclasses import dataclass
 from urllib.request import Request, urlopen
 
+from aws_lambda_powertools import Logger
+
+logger = Logger(child=True)
+
 SAVANT_URL = (
     "https://baseballsavant.mlb.com/statcast_search/csv"
     "?all=true&type=details"
@@ -73,11 +77,14 @@ def download_partition(
     key = _s3_key(season, game_date)
 
     if not force_download and _object_exists(s3_client, bucket, key):
-        print(f"Skipping {key} — already exists")
+        logger.info(
+            "Partition already exists, skipping download",
+            extra={"s3_key": key},
+        )
         return LoadResult(records_downloaded=0, skipped=True)
 
     url = SAVANT_URL.format(game_date=game_date)
-    print(f"Downloading {url}")
+    logger.info("Downloading from Baseball Savant", extra={"url": url})
     req = Request(url, headers={"User-Agent": "doubleday-etl/1.0"})
     with urlopen(req) as resp:  # noqa: S310
         body = resp.read()
@@ -87,6 +94,6 @@ def download_partition(
     # Count data rows (subtract 1 for the header)
     lines = body.decode("utf-8").splitlines()
     records = max(len(lines) - 1, 0)
-    print(f"Uploaded {key} — {records} records")
+    logger.info("Uploaded partition to S3", extra={"s3_key": key, "records": records})
 
     return LoadResult(records_downloaded=records, skipped=False)

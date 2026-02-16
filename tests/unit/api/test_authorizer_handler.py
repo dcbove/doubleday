@@ -15,6 +15,8 @@ module level.
 import os
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 # Set env vars before importing handler (module-level os.environ reads)
 os.environ.setdefault("COGNITO_USER_POOL_ID", "us-east-1_TestPool")
 os.environ.setdefault("COGNITO_REGION", "us-east-1")
@@ -23,6 +25,17 @@ os.environ.setdefault("COGNITO_CLIENT_ID", "test-client-id")
 from doubleday.api.authorizer.handler import handler  # noqa: E402
 
 METHOD_ARN = "arn:aws:execute-api:us-east-1:123456:api/dev/GET/pitchers"
+
+
+@pytest.fixture()
+def lambda_context():
+    """Create a mock Lambda context for Powertools inject_lambda_context."""
+    ctx = MagicMock()
+    ctx.function_name = "test-authorizer"
+    ctx.memory_limit_in_mb = 128
+    ctx.invoked_function_arn = "arn:aws:lambda:us-east-1:123456:function:test"
+    ctx.aws_request_id = "test-request-id"
+    return ctx
 
 
 class TestAuthorizerHandler:
@@ -35,7 +48,7 @@ class TestAuthorizerHandler:
 
     @patch("doubleday.api.authorizer.handler._get_public_key")
     @patch("doubleday.api.authorizer.handler.jwt")
-    def test_valid_token_returns_allow(self, mock_jwt, mock_get_key):
+    def test_valid_token_returns_allow(self, mock_jwt, mock_get_key, lambda_context):
         """Valid token returns Allow policy with user's sub as principalId."""
         mock_get_key.return_value = MagicMock()
         mock_jwt.decode.return_value = {"sub": "user-123", "email": "test@test.com"}
@@ -47,7 +60,7 @@ class TestAuthorizerHandler:
             "methodArn": METHOD_ARN,
         }
 
-        result = handler(event, None)
+        result = handler(event, lambda_context)
 
         assert result["principalId"] == "user-123"
         statement = result["policyDocument"]["Statement"][0]
@@ -56,7 +69,7 @@ class TestAuthorizerHandler:
 
     @patch("doubleday.api.authorizer.handler._get_public_key")
     @patch("doubleday.api.authorizer.handler.jwt")
-    def test_expired_token_returns_deny(self, mock_jwt, mock_get_key):
+    def test_expired_token_returns_deny(self, mock_jwt, mock_get_key, lambda_context):
         """Expired token returns Deny policy."""
         mock_get_key.return_value = MagicMock()
         expired_error = type("ExpiredSignatureError", (Exception,), {})
@@ -69,7 +82,7 @@ class TestAuthorizerHandler:
             "methodArn": METHOD_ARN,
         }
 
-        result = handler(event, None)
+        result = handler(event, lambda_context)
 
         assert result["principalId"] == "anonymous"
         statement = result["policyDocument"]["Statement"][0]
@@ -77,7 +90,7 @@ class TestAuthorizerHandler:
 
     @patch("doubleday.api.authorizer.handler._get_public_key")
     @patch("doubleday.api.authorizer.handler.jwt")
-    def test_malformed_token_returns_deny(self, mock_jwt, mock_get_key):
+    def test_malformed_token_returns_deny(self, mock_jwt, mock_get_key, lambda_context):
         """Malformed token returns Deny policy."""
         invalid_error = type("InvalidTokenError", (Exception,), {})
         mock_jwt.ExpiredSignatureError = Exception
@@ -89,33 +102,33 @@ class TestAuthorizerHandler:
             "methodArn": METHOD_ARN,
         }
 
-        result = handler(event, None)
+        result = handler(event, lambda_context)
 
         assert result["principalId"] == "anonymous"
         statement = result["policyDocument"]["Statement"][0]
         assert statement["Effect"] == "Deny"
 
-    def test_missing_token_returns_deny(self):
+    def test_missing_token_returns_deny(self, lambda_context):
         """Missing Bearer prefix returns Deny policy."""
         event = {
             "authorizationToken": "",
             "methodArn": METHOD_ARN,
         }
 
-        result = handler(event, None)
+        result = handler(event, lambda_context)
 
         assert result["principalId"] == "anonymous"
         statement = result["policyDocument"]["Statement"][0]
         assert statement["Effect"] == "Deny"
 
-    def test_non_bearer_token_returns_deny(self):
+    def test_non_bearer_token_returns_deny(self, lambda_context):
         """Non-Bearer token returns Deny policy."""
         event = {
             "authorizationToken": "Basic dXNlcjpwYXNz",
             "methodArn": METHOD_ARN,
         }
 
-        result = handler(event, None)
+        result = handler(event, lambda_context)
 
         assert result["principalId"] == "anonymous"
         statement = result["policyDocument"]["Statement"][0]

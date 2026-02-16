@@ -5,17 +5,19 @@ import os
 from typing import Any
 
 import boto3
-from aws_lambda_powertools import Metrics
+from aws_lambda_powertools import Logger, Metrics
 from aws_lambda_powertools.metrics import MetricUnit
 
 from doubleday.pipeline.bronze_load.pipeline import download_partition
 
 s3 = boto3.client("s3")
+logger = Logger()
 metrics = Metrics()
 
 BUCKET = os.environ["LAKEHOUSE_BUCKET"]
 
 
+@logger.inject_lambda_context
 @metrics.log_metrics
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """Download a single game date from Baseball Savant to S3.

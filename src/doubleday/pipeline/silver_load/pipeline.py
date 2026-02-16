@@ -7,7 +7,11 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
+from aws_lambda_powertools import Logger
+
 from doubleday.util.athena import get_query_row_count, run_query
+
+logger = Logger(child=True)
 
 STEPS = [
     ("load_partition", "silver_load_partition_into_staging_table.sql"),
@@ -54,14 +58,20 @@ def load_partition(
     results = {}
     for step_name, sql_file in STEPS:
         sql = load_sql(sql_dir, sql_file).format(**fmt)
-        print(f"Running {step_name}: {sql_file}")
+        logger.info("Running step", extra={"step": step_name, "sql_file": sql_file})
         execution_id = run_query(client, sql, database, output_bucket)
         results[step_name] = execution_id
-        print(f"  Completed: {execution_id}")
+        logger.info(
+            "Step completed",
+            extra={"step": step_name, "execution_id": execution_id},
+        )
 
         if step_name == "load_partition":
             records_loaded = get_query_row_count(client, execution_id)
-            print(f"  Records loaded into staging: {records_loaded}")
+            logger.info(
+                "Records loaded into staging",
+                extra={"records_loaded": records_loaded},
+            )
 
         if step_name == "validate_staging":
             duplicate_keys = get_query_row_count(client, execution_id)
@@ -71,11 +81,14 @@ def load_partition(
                     f"(game_pk, at_bat_number, pitch_number) keys found "
                     f"for season={season}, game_date={game_date}"
                 )
-            print("  Validation passed: no duplicate keys")
+            logger.info("Validation passed, no duplicate keys")
 
         if step_name == "insert_canonical":
             records_inserted = get_query_row_count(client, execution_id)
-            print(f"  Records inserted into canonical: {records_inserted}")
+            logger.info(
+                "Records inserted into canonical",
+                extra={"records_inserted": records_inserted},
+            )
 
     return LoadResult(
         records_loaded=records_loaded,
