@@ -386,13 +386,20 @@ resource "aws_iam_role_policy" "terraform_managed_resources" {
           "cognito-idp:UpdateUserPoolClient",
           "cognito-idp:CreateUserPoolDomain",
           "cognito-idp:DeleteUserPoolDomain",
-          "cognito-idp:DescribeUserPoolDomain",
           "cognito-idp:CreateIdentityProvider",
           "cognito-idp:DeleteIdentityProvider",
           "cognito-idp:DescribeIdentityProvider",
           "cognito-idp:UpdateIdentityProvider",
         ]
         Resource = "arn:aws:cognito-idp:${var.region}:${data.aws_caller_identity.current.account_id}:userpool/*"
+      },
+      {
+        Sid    = "CognitoDomain"
+        Effect = "Allow"
+        Action = [
+          "cognito-idp:DescribeUserPoolDomain",
+        ]
+        Resource = "*"
       },
     ]
   })
