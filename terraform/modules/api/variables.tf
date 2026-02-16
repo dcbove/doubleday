@@ -1,0 +1,81 @@
+variable "project" {
+  description = "Project name used for resource naming and tagging"
+  type        = string
+}
+
+variable "environment" {
+  description = "Environment name used for resource naming and tagging"
+  type        = string
+}
+
+variable "region" {
+  description = "AWS region"
+  type        = string
+}
+
+variable "glue_database" {
+  description = "Glue catalog database name"
+  type        = string
+}
+
+variable "athena_results_bucket" {
+  description = "S3 bucket name for Athena query results"
+  type        = string
+}
+
+variable "lakehouse_bucket_arn" {
+  description = "ARN of the lakehouse S3 bucket"
+  type        = string
+}
+
+variable "powertools_layer_arn" {
+  description = "ARN of the AWS Lambda Powertools for Python layer"
+  type        = string
+}
+
+variable "lambda_package_path" {
+  description = "Path to the shared Lambda deployment zip"
+  type        = string
+}
+
+variable "lambda_package_hash" {
+  description = "Base64-encoded SHA256 hash of the Lambda deployment zip"
+  type        = string
+}
+
+variable "cognito_user_pool_id" {
+  description = "ID of the Cognito user pool"
+  type        = string
+}
+
+variable "cognito_user_pool_arn" {
+  description = "ARN of the Cognito user pool"
+  type        = string
+}
+
+variable "cognito_client_id" {
+  description = "ID of the Cognito user pool client"
+  type        = string
+}
+
+variable "domain_name" {
+  description = "Custom domain name for the API (e.g. doubleday-dev.appleforge.com)"
+  type        = string
+}
+
+variable "hosted_zone_name" {
+  description = "Route53 hosted zone name (e.g. appleforge.com)"
+  type        = string
+}
+
+variable "rate_limit" {
+  description = "Steady-state request rate limit per second"
+  type        = number
+  default     = 50
+}
+
+variable "burst_limit" {
+  description = "Burst request rate limit"
+  type        = number
+  default     = 100
+}

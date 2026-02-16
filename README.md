@@ -19,7 +19,7 @@ make install
 
 ```
 src/doubleday/
-  lambdas/
+  pipeline/
     validate_input/
       handler.py        # Lambda entry point — validate input, generate batch_id
     bronze_load/
@@ -33,6 +33,12 @@ src/doubleday/
       pipeline.py       # Business logic — partition overwrite pipeline
     clear_staging/
       handler.py        # Lambda entry point — bulk delete staging rows by batch_id
+  api/
+    query_pitches/
+      handler.py        # API Gateway proxy handler — pitcher pitch-shape stats
+      pipeline.py       # Business logic — Athena query + result formatting
+    authorizer/
+      handler.py        # TOKEN authorizer — validate Cognito JWT tokens
   util/
     athena.py           # Shared Athena query execution utilities
   main.py               # CLI entry point
@@ -49,26 +55,39 @@ sql/
     silver_clear_partition_from_staging_table.sql      # Bulk delete staging by batch_id
     gold_pitches_shape_season_delete.sql              # Delete gold partition
     gold_pitches_shape_season_insert.sql              # INSERT from silver
+  api/
+    query_pitches.sql                                 # SELECT pitcher pitch-shape stats
 terraform/
-  environments/
-    dev/                # Dev environment root
-    prod/               # Prod environment root
   modules/
-    s3/                 # Lakehouse bucket
-    glue/               # Database and table DDL (bronze, silver, gold)
-    lambda/             # Lambda functions, IAM, packaging
-    step_function/      # Pipeline Step Function, IAM, logging
+    doubleday/          # Composition module — wires all child modules, builds shared Lambda zip
+    pipeline/
+      s3/               # Lakehouse bucket
+      glue/             # Database and table DDL (bronze, silver, gold)
+      lambda/           # Pipeline Lambda functions, IAM
+      step_function/    # Pipeline Step Function, IAM, logging
+    api/                # API Gateway, query Lambda, authorizer Lambda, custom domain
+    cognito/            # Cognito user pool with Google federation
     oidc/               # GitHub Actions OIDC provider and IAM role
+  environments/
+    dev/                # Dev environment root (doubleday + oidc modules)
+    prod/               # Prod environment root (doubleday module only)
 .github/workflows/
-  terraform-plan.yml    # PR: plan dev + prod
-  terraform-apply.yml   # Merge to main: apply dev then prod
+  terraform-plan.yml    # PR: apply dev + plan prod
+  terraform-apply.yml   # Merge to main: apply prod
 tests/
-  test_main.py                              # Unit tests
-  test_validate_input_handler.py            # Validate input unit tests
-  test_bronze_load_pipeline.py              # Bronze load unit tests
-  test_silver_load_pipeline.py              # Silver load unit tests
-  test_gold_load_pipeline.py                # Gold load unit tests
-  test_clear_staging_handler.py             # Clear staging unit tests
+  unit/
+    test_main.py                            # Main module unit tests
+    api/
+      test_authorizer_handler.py            # API authorizer unit tests
+      test_query_pitches_pipeline.py        # API query pitches unit tests
+    pipeline/
+      test_bronze_load_pipeline.py          # Bronze load unit tests
+      test_clear_staging_handler.py         # Clear staging unit tests
+      test_gold_load_pipeline.py            # Gold load unit tests
+      test_silver_load_pipeline.py          # Silver load unit tests
+      test_validate_input_handler.py        # Validate input unit tests
+    util/
+      test_athena.py                        # Athena utility unit tests
   integration/
     test_silver_pitches_load.py             # Silver load integration tests
 scripts/
@@ -306,6 +325,40 @@ One `gold_load` Lambda accepts a table name parameter and executes the correspon
 
 All processing flows through the Step Function. There are no S3 event triggers or independent Lambda invocations in production. This eliminates double-processing, makes the pipeline easy to reason about, and gives a single place to monitor execution status.
 
+## REST API
+
+The API provides authenticated access to gold table data. It uses Cognito for authentication (with Google federation) and API Gateway with a custom Lambda authorizer.
+
+### Endpoint
+
+```
+GET /pitchers/{pitcher_id}/pitches?season={season}&pitch_type={pitch_type}
+```
+
+- `pitcher_id` (path, required): MLB pitcher ID (e.g., `605151`)
+- `season` (query, required): Season year (e.g., `2024`)
+- `pitch_type` (query, optional): Pitch type filter (e.g., `FF`, `SL`)
+
+Returns pitch-shape stats (movement, velocity, spin, usage) from `gold_pitches_shape_season`.
+
+### Authentication
+
+1. Obtain a token from the Cognito hosted UI:
+   ```
+   https://doubleday-<env>.auth.us-east-1.amazoncognito.com/login?client_id=<client_id>&response_type=token&scope=openid+email+profile&redirect_uri=<callback_url>
+   ```
+
+2. Include the token in the `Authorization` header:
+   ```bash
+   curl -H "Authorization: Bearer <token>" \
+        -H "x-api-key: <api_key>" \
+        "https://doubleday-dev.appleforge.com/pitchers/605151/pitches?season=2024"
+   ```
+
+### Rate limiting
+
+Requests require an API key (`x-api-key` header) and are subject to rate limiting (default: 50 req/s steady, 100 req/s burst).
+
 ## Testing
 
 ### Unit tests
@@ -357,13 +410,20 @@ terraform apply
 
 | Module | Description |
 |--------|-------------|
-| `s3` | Lakehouse S3 bucket |
-| `glue` | Glue database, bronze/silver/gold table DDL |
-| `lambda` | Lambda functions (validate_input, bronze_load, silver_load, gold_load, clear_staging), IAM roles, zip packaging |
-| `step_function` | Pipeline Step Function, IAM role, CloudWatch logging |
+| `doubleday` | Composition module — wires all child modules, builds the shared Lambda zip |
+| `pipeline/s3` | Lakehouse S3 bucket |
+| `pipeline/glue` | Glue database, bronze/silver/gold table DDL |
+| `pipeline/lambda` | Pipeline Lambda functions (validate_input, bronze_load, silver_load, gold_load, clear_staging), IAM roles |
+| `pipeline/step_function` | Pipeline Step Function, IAM role, CloudWatch logging |
+| `cognito` | Cognito user pool with Google federation, hosted UI |
+| `api` | API Gateway REST API, authorizer Lambda, query Lambda, custom domain, rate limiting |
 | `oidc` | GitHub Actions OIDC provider and IAM role (dev only, account-level) |
 
-All Lambda functions share a single deployment zip built by Terraform's `archive_file` data source. It bundles the full `doubleday` Python package from `src/` along with all SQL templates from `sql/pipeline/`. Each Lambda points at the same zip with a different handler entry point. Changing any Python or SQL file triggers a redeployment of all functions, keeping them in sync.
+Environment files (`dev/main.tf`, `prod/main.tf`) call `module "doubleday"` and pass variables — they never reference child modules directly. All inter-module wiring lives in the composition module.
+
+All Lambda functions (pipeline and API) share a single deployment zip built by the composition module (`doubleday/package.tf`). It bundles the full `doubleday` Python package from `src/`, SQL templates from `sql/pipeline/` and `sql/api/`, and pip dependencies (PyJWT, cryptography) for the authorizer. Each Lambda points at the same zip with a different handler entry point. Changing any Python, SQL, or dependency triggers a redeployment of all functions, keeping them in sync.
+
+Each API endpoint is a self-contained `.tf` file in the `api` module containing its Lambda function, IAM role, API Gateway resources, and CORS configuration.
 
 ## Deployment
 

@@ -22,3 +22,35 @@ variable "powertools_layer_arn" {
   description = "ARN of the AWS Lambda Powertools for Python layer"
   type        = string
 }
+
+variable "google_client_id" {
+  description = "Google OAuth client ID for Cognito federation"
+  type        = string
+  sensitive   = true
+}
+
+variable "google_client_secret" {
+  description = "Google OAuth client secret for Cognito federation"
+  type        = string
+  sensitive   = true
+}
+
+variable "api_domain_name" {
+  description = "Custom domain name for the API"
+  type        = string
+}
+
+variable "hosted_zone_name" {
+  description = "Route53 hosted zone name"
+  type        = string
+}
+
+variable "cognito_callback_urls" {
+  description = "Allowed callback URLs for Cognito client"
+  type        = list(string)
+}
+
+variable "cognito_logout_urls" {
+  description = "Allowed logout URLs for Cognito client"
+  type        = list(string)
+}

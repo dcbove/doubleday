@@ -11,7 +11,7 @@ typecheck:
 	uv run mypy src/ tests/
 
 test:
-	uv run pytest tests/ -v -m "not integration"
+	uv run pytest tests/unit/ -v -m "not integration"
 
 test-integration:
 	uv run pytest tests/integration/ -v -m integration

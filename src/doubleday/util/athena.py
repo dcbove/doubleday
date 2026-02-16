@@ -45,6 +45,44 @@ def run_query(client, sql: str, database: str, output_bucket: str) -> str:
     raise RuntimeError("run_query: exhausted retries unexpectedly")
 
 
+def get_query_results(client, execution_id: str) -> list[dict[str, str]]:
+    """Fetch all result rows from a completed SELECT query as a list of dicts.
+
+    Args:
+        client: Boto3 Athena client.
+        execution_id: The QueryExecutionId of the completed query.
+
+    Returns:
+        List of dicts mapping column names to string values.
+    """
+    rows: list[dict[str, str]] = []
+    kwargs: dict = {"QueryExecutionId": execution_id}
+    is_first_page = True
+
+    while True:
+        result = client.get_query_results(**kwargs)
+        columns = [
+            col["Name"]
+            for col in result["ResultSet"]["ResultSetMetadata"]["ColumnInfo"]
+        ]
+        page_rows = result["ResultSet"]["Rows"]
+
+        # Skip header row (first row of first page)
+        start = 1 if is_first_page else 0
+        is_first_page = False
+
+        for row in page_rows[start:]:
+            values = [field.get("VarCharValue", "") for field in row["Data"]]
+            rows.append(dict(zip(columns, values, strict=True)))
+
+        next_token = result.get("NextToken")
+        if not next_token:
+            break
+        kwargs["NextToken"] = next_token
+
+    return rows
+
+
 def get_query_row_count(client, execution_id: str) -> int:
     """Get the row count from a completed INSERT/MERGE query result.
 

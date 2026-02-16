@@ -9,38 +9,17 @@ provider "aws" {
   }
 }
 
-module "s3" {
-  source      = "../../modules/s3"
-  project     = var.project
-  environment = var.environment
-}
-
-module "glue" {
-  source                = "../../modules/glue"
+module "doubleday" {
+  source                = "../../modules/doubleday"
   project               = var.project
   environment           = var.environment
-  lakehouse_bucket_name = module.s3.lakehouse_bucket_name
+  region                = var.region
   athena_results_bucket = var.athena_results_bucket
-}
-
-module "lambda" {
-  source                = "../../modules/lambda"
-  project               = var.project
-  environment           = var.environment
-  glue_database         = module.glue.database_name
-  athena_results_bucket = var.athena_results_bucket
-  lakehouse_bucket_arn  = module.s3.lakehouse_bucket_arn
-  lakehouse_bucket_name = module.s3.lakehouse_bucket_name
   powertools_layer_arn  = var.powertools_layer_arn
-}
-
-module "step_function" {
-  source                   = "../../modules/step_function"
-  project                  = var.project
-  environment              = var.environment
-  silver_load_function_arn     = module.lambda.silver_load_function_arn
-  gold_load_function_arn       = module.lambda.gold_load_function_arn
-  bronze_load_function_arn     = module.lambda.bronze_load_function_arn
-  validate_input_function_arn  = module.lambda.validate_input_function_arn
-  clear_staging_function_arn   = module.lambda.clear_staging_function_arn
+  google_client_id      = var.google_client_id
+  google_client_secret  = var.google_client_secret
+  cognito_callback_urls = var.cognito_callback_urls
+  cognito_logout_urls   = var.cognito_logout_urls
+  api_domain_name       = var.api_domain_name
+  hosted_zone_name      = var.hosted_zone_name
 }

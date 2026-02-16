@@ -35,16 +35,6 @@ variable "google_client_secret" {
   sensitive   = true
 }
 
-variable "api_domain_name" {
-  description = "Custom domain name for the API"
-  type        = string
-}
-
-variable "hosted_zone_name" {
-  description = "Route53 hosted zone name"
-  type        = string
-}
-
 variable "cognito_callback_urls" {
   description = "Allowed callback URLs for Cognito client"
   type        = list(string)
@@ -53,4 +43,14 @@ variable "cognito_callback_urls" {
 variable "cognito_logout_urls" {
   description = "Allowed logout URLs for Cognito client"
   type        = list(string)
+}
+
+variable "api_domain_name" {
+  description = "Custom domain name for the API"
+  type        = string
+}
+
+variable "hosted_zone_name" {
+  description = "Route53 hosted zone name"
+  type        = string
 }
