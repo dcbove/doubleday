@@ -57,3 +57,13 @@ output "check_failures_function_arn" {
   description = "ARN of the check failures Lambda function"
   value       = aws_lambda_function.check_failures.arn
 }
+
+output "catalog_build_function_name" {
+  description = "Name of the catalog build Lambda function"
+  value       = aws_lambda_function.catalog_build.function_name
+}
+
+output "catalog_build_function_arn" {
+  description = "ARN of the catalog build Lambda function"
+  value       = aws_lambda_function.catalog_build.arn
+}

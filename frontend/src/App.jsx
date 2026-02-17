@@ -4,6 +4,7 @@ import ProtectedRoute from "./auth/ProtectedRoute";
 import Landing from "./pages/Landing";
 import Callback from "./pages/Callback";
 import Dashboard from "./pages/Dashboard";
+import PitcherDetail from "./pages/PitcherDetail";
 import Layout from "./components/Layout";
 
 export default function App() {
@@ -16,6 +17,7 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/pitchers/:id" element={<PitcherDetail />} />
             </Route>
           </Route>
         </Routes>

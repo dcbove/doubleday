@@ -3,7 +3,9 @@ data "aws_secretsmanager_secret_version" "google_oauth" {
 }
 
 locals {
-  google_oauth = jsondecode(data.aws_secretsmanager_secret_version.google_oauth.secret_string)
+  google_oauth         = jsondecode(data.aws_secretsmanager_secret_version.google_oauth.secret_string)
+  frontend_bucket_name = "${var.project}-${var.environment}-frontend"
+  frontend_bucket_arn  = "arn:aws:s3:::${var.project}-${var.environment}-frontend"
 }
 
 module "s3" {
@@ -31,6 +33,8 @@ module "lambda" {
   powertools_layer_arn  = var.powertools_layer_arn
   lambda_package_path   = data.archive_file.lambda_package.output_path
   lambda_package_hash   = data.archive_file.lambda_package.output_base64sha256
+  frontend_bucket_name  = module.frontend.frontend_bucket_name
+  frontend_bucket_arn   = module.frontend.frontend_bucket_arn
 }
 
 module "step_function" {
@@ -43,6 +47,7 @@ module "step_function" {
   validate_input_function_arn = module.lambda.validate_input_function_arn
   clear_staging_function_arn  = module.lambda.clear_staging_function_arn
   check_failures_function_arn = module.lambda.check_failures_function_arn
+  catalog_build_function_arn  = module.lambda.catalog_build_function_arn
 }
 
 module "dashboard" {
@@ -80,8 +85,10 @@ module "api" {
     module.cognito.client_id,
     module.cognito.test_client_id,
   ])
-  domain_name      = var.api_domain_name
-  hosted_zone_name = var.hosted_zone_name
+  domain_name          = var.api_domain_name
+  hosted_zone_name     = var.hosted_zone_name
+  frontend_bucket_name = local.frontend_bucket_name
+  frontend_bucket_arn  = local.frontend_bucket_arn
 }
 
 module "frontend" {

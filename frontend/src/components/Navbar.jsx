@@ -26,7 +26,7 @@ export default function Navbar() {
                   referrerPolicy="no-referrer"
                 />
               )}
-              <span className="text-sm text-gray-600">
+              <span className="hidden text-sm text-gray-600 sm:inline">
                 {user.name}
               </span>
             </div>

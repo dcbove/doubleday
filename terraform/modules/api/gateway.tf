@@ -59,6 +59,12 @@ resource "aws_api_gateway_deployment" "main" {
       aws_api_gateway_integration.get_pitches,
       aws_api_gateway_method.options_pitches,
       aws_api_gateway_integration.options_pitches,
+      aws_api_gateway_resource.catalogs,
+      aws_api_gateway_resource.catalog_role,
+      aws_api_gateway_method.get_catalog,
+      aws_api_gateway_integration.get_catalog,
+      aws_api_gateway_method.options_catalog,
+      aws_api_gateway_integration.options_catalog,
       aws_api_gateway_authorizer.cognito,
     ]))
   }

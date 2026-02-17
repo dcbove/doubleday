@@ -12,3 +12,8 @@ output "frontend_url" {
   description = "URL of the frontend"
   value       = "https://${var.domain_name}"
 }
+
+output "frontend_bucket_arn" {
+  description = "ARN of the S3 bucket for frontend assets"
+  value       = aws_s3_bucket.frontend.arn
+}

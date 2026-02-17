@@ -302,6 +302,44 @@ s3://doubleday-<env>-lakehouse/gold/
 └── gold_pitches_shape_season/    # Iceberg data + metadata
 ```
 
+## Player Catalogs
+
+The catalog build pipeline generates static player catalog artifacts (`catalog.json` and `manifest.json`) for each season and role. These are published to the frontend S3 bucket and served via CloudFront. The SPA fetches the manifest through the authenticated API, then conditionally downloads the catalog blob for local search.
+
+### Invoking the catalog_build Lambda
+
+```bash
+aws lambda invoke \
+  --function-name doubleday-dev-catalog-build \
+  --cli-binary-format raw-in-base64-out \
+  --payload '{"season": 2024, "role": "pitchers"}' \
+  /dev/stdout
+```
+
+Use `force_rebuild` to re-fetch all enrichment data from the MLB API (ignoring the cache):
+
+```bash
+aws lambda invoke \
+  --function-name doubleday-dev-catalog-build \
+  --cli-binary-format raw-in-base64-out \
+  --payload '{"season": 2024, "role": "pitchers", "force_rebuild": true}' \
+  /dev/stdout
+```
+
+### S3 layout
+
+```
+s3://doubleday-<env>-frontend/static/catalogs/
+├── pitchers/
+│   └── season=2024/
+│       ├── catalog.json      # Full player catalog blob
+│       └── manifest.json     # Metadata: etag, coverage, counts
+└── batters/
+    └── season=2024/
+        ├── catalog.json
+        └── manifest.json
+```
+
 ## Pipeline Orchestration
 
 A Standard Step Function orchestrates the full ETL pipeline:

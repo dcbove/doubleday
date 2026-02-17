@@ -57,7 +57,7 @@ frontend-deploy: frontend-install
 		VITE_REDIRECT_SIGN_IN=https://$(DOMAIN)/callback \
 		VITE_REDIRECT_SIGN_OUT=https://$(DOMAIN) \
 		npm run build
-	aws s3 sync frontend/dist "s3://$(BUCKET)" --delete
+	aws s3 sync frontend/dist "s3://$(BUCKET)" --delete --exclude "static/catalogs/*"
 	aws cloudfront create-invalidation --distribution-id "$(DIST_ID)" --paths "/*"
 
 frontend-clean:
