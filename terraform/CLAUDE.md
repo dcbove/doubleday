@@ -2,9 +2,17 @@
 
 ## Composition Module (`modules/doubleday/`)
 
-All inter-module wiring lives in one place: `modules/doubleday/main.tf`. Environment files (`environments/{dev,prod}/main.tf`) call `module "doubleday"` and pass variables — they never reference child modules directly. Dev adds `module "oidc"` for GitHub Actions; prod does not.
+All inter-module wiring lives in one place: `modules/doubleday/main.tf`. Environment files (`environments/{dev,prod}/main.tf`) call `module "doubleday"` and pass variables — they never reference child modules directly.
 
 This means adding a new child module or changing how modules connect requires editing only `modules/doubleday/main.tf`, not every environment.
+
+## OIDC Environment (`environments/oidc/`)
+
+The GitHub Actions OIDC role lives in its own root module with a separate state file (`doubleday/oidc/terraform.tfstate`). This ensures the IAM role and its policies are always applied *before* dev or prod, since the role's permissions must be in place before Terraform can manage other resources.
+
+Both GitHub Actions workflows (`terraform-plan.yml`, `terraform-apply.yml`) have an `apply-oidc` job that runs first, with dev/prod jobs depending on it via `needs: apply-oidc`.
+
+When adding permissions for a new AWS resource type, update `modules/oidc/main.tf` — the OIDC environment will apply the policy change before dev/prod attempt to use those permissions.
 
 ## Lambda Packaging (`modules/doubleday/package.tf`)
 

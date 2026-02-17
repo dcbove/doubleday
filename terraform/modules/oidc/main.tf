@@ -439,6 +439,7 @@ resource "aws_iam_role_policy" "oidc_self_manage" {
           "iam:GetOpenIDConnectProvider",
           "iam:ListOpenIDConnectProviders",
           "iam:TagOpenIDConnectProvider",
+          "iam:UntagOpenIDConnectProvider",
           "iam:UpdateOpenIDConnectProviderThumbprint",
         ]
         Resource = "*"

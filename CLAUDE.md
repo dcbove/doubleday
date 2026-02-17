@@ -33,7 +33,8 @@ Each API Lambda lives in `src/doubleday/api/<name>/` with:
 - **Pipeline modules** (`terraform/modules/pipeline/`): s3, glue, lambda, step_function. Lambda functions receive the shared zip as variables.
 - **Cognito module** (`terraform/modules/cognito/`): User pool with Google federation. Optional test client (`enable_test_client`) for integration testing via `USER_PASSWORD_AUTH`.
 - **API module** (`terraform/modules/api/`): API Gateway, authorizer Lambda, query Lambda, custom domain, rate limiting. Each endpoint is a self-contained `.tf` file (Lambda + IAM + API GW resources + CORS).
-- **Environments** (`terraform/environments/{dev,prod}/main.tf`): Call `module "doubleday"` and pass variables. Dev adds `module "oidc"`; prod does not.
+- **OIDC module** (`terraform/modules/oidc/`): GitHub Actions IAM role via OIDC federation. Lives in its own root module (`terraform/environments/oidc/`) with separate state, applied before dev/prod in CI.
+- **Environments** (`terraform/environments/{dev,prod}/main.tf`): Call `module "doubleday"` and pass variables.
 - See `terraform/CLAUDE.md` for detailed Terraform architecture and conventions.
 
 ### Test Pattern

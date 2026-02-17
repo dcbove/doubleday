@@ -23,21 +23,6 @@ module "doubleday" {
   enable_test_client    = true
 }
 
-module "oidc" {
-  source                = "../../modules/oidc"
-  project               = var.project
-  region                = var.region
-  github_repo           = "dcbove/doubleday"
-  state_bucket          = "appleforge-terraform-state"
-  lock_table            = "appleforge-terraform-locks"
-  athena_results_bucket = var.athena_results_bucket
-}
-
-output "github_actions_role_arn" {
-  description = "ARN of the GitHub Actions OIDC role"
-  value       = module.oidc.role_arn
-}
-
 output "cognito_user_pool_id" {
   description = "ID of the Cognito user pool"
   value       = module.doubleday.cognito_user_pool_id
