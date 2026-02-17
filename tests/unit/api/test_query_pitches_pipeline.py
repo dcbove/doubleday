@@ -30,8 +30,7 @@ class TestQueryPitches:
         api_dir = tmp_path / "api"
         api_dir.mkdir()
         (api_dir / "query_pitches.sql").write_text(
-            "SELECT * FROM gold_pitches_shape_season"
-            " WHERE pitcher = {pitcher} AND season = {season}"
+            "SELECT * FROM gold_pitches_shape_season" " WHERE pitcher = {pitcher} AND season = {season}"
         )
         return tmp_path
 
@@ -77,9 +76,7 @@ class TestQueryPitches:
 
     @patch("doubleday.api.query_pitches.pipeline.get_query_results")
     @patch("doubleday.api.query_pitches.pipeline.run_query")
-    def test_pitch_type_filter_appends_where_clause(
-        self, mock_run, mock_results, sql_dir
-    ):
+    def test_pitch_type_filter_appends_where_clause(self, mock_run, mock_results, sql_dir):
         """Optional pitch_type filter adds AND clause to SQL."""
         mock_run.return_value = "exec-1"
         mock_results.return_value = []

@@ -47,3 +47,13 @@ output "clear_staging_function_arn" {
   description = "ARN of the clear staging Lambda function"
   value       = aws_lambda_function.clear_staging.arn
 }
+
+output "check_failures_function_name" {
+  description = "Name of the check failures Lambda function"
+  value       = aws_lambda_function.check_failures.function_name
+}
+
+output "check_failures_function_arn" {
+  description = "ARN of the check failures Lambda function"
+  value       = aws_lambda_function.check_failures.arn
+}

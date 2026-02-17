@@ -74,9 +74,7 @@ def query_pitches(
     Returns:
         QueryResult with pitcher, season, and list of pitch-shape dicts.
     """
-    sql = load_sql(sql_dir, "api/query_pitches.sql").format(
-        pitcher=pitcher, season=season
-    )
+    sql = load_sql(sql_dir, "api/query_pitches.sql").format(pitcher=pitcher, season=season)
 
     if pitch_type is not None:
         sql += f"\n  AND pitch_type = '{pitch_type}'"

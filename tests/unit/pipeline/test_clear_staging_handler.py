@@ -51,14 +51,10 @@ class TestClearStagingHandler:
     @patch("doubleday.pipeline.clear_staging.handler.athena")
     @patch("doubleday.pipeline.clear_staging.handler.DATABASE", "test_db")
     @patch("doubleday.pipeline.clear_staging.handler.OUTPUT_BUCKET", "test-bucket")
-    def test_clears_staging_with_batch_id(
-        self, mock_athena, mock_metrics, mock_run, mock_sql_dir, lambda_context
-    ):
+    def test_clears_staging_with_batch_id(self, mock_athena, mock_metrics, mock_run, mock_sql_dir, lambda_context):
         """Handler formats SQL with batch_id and calls run_query."""
         mock_sql_file = MagicMock()
-        mock_sql_file.read_text.return_value = (
-            "DELETE FROM silver_pitches_staging" " WHERE batch_id = '{batch_id}'\n"
-        )
+        mock_sql_file.read_text.return_value = "DELETE FROM silver_pitches_staging" " WHERE batch_id = '{batch_id}'\n"
         mock_sql_dir.__truediv__ = MagicMock(return_value=mock_sql_file)
         mock_run.return_value = "exec-123"
 
@@ -81,9 +77,7 @@ class TestClearStagingHandler:
     @patch("doubleday.pipeline.clear_staging.handler.athena")
     @patch("doubleday.pipeline.clear_staging.handler.DATABASE", "test_db")
     @patch("doubleday.pipeline.clear_staging.handler.OUTPUT_BUCKET", "test-bucket")
-    def test_reads_correct_sql_file(
-        self, mock_athena, mock_metrics, mock_run, mock_sql_dir, lambda_context
-    ):
+    def test_reads_correct_sql_file(self, mock_athena, mock_metrics, mock_run, mock_sql_dir, lambda_context):
         """Handler reads the clear partition SQL template."""
         mock_sql_file = MagicMock()
         mock_sql_file.read_text.return_value = "DELETE WHERE batch_id = '{batch_id}'"
@@ -92,6 +86,4 @@ class TestClearStagingHandler:
 
         handler({"batch_id": "test-batch"}, lambda_context)
 
-        mock_sql_dir.__truediv__.assert_called_once_with(
-            "silver_clear_partition_from_staging_table.sql"
-        )
+        mock_sql_dir.__truediv__.assert_called_once_with("silver_clear_partition_from_staging_table.sql")

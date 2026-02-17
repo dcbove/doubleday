@@ -32,3 +32,8 @@ variable "clear_staging_function_arn" {
   description = "ARN of the clear staging Lambda function"
   type        = string
 }
+
+variable "check_failures_function_arn" {
+  description = "ARN of the check failures Lambda function"
+  type        = string
+}

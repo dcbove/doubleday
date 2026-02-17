@@ -130,9 +130,7 @@ class TestQueryPitchesGateway:
         Ohtani throws a sweeper (ST). The response should contain exactly one
         pitch type entry matching the filter.
         """
-        response = _invoke(
-            f"/pitchers/{PITCHER_ID}/pitches?season={SEASON}&pitch_type=ST"
-        )
+        response = _invoke(f"/pitchers/{PITCHER_ID}/pitches?season={SEASON}&pitch_type=ST")
 
         assert response["status"] == 200
 

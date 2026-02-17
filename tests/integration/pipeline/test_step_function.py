@@ -81,9 +81,7 @@ def _wait_for_execution(execution_arn: str) -> dict[str, Any]:
 
         time.sleep(POLL_INTERVAL)
 
-    pytest.fail(
-        f"Execution {execution_arn} did not complete within {EXECUTION_TIMEOUT}s"
-    )
+    pytest.fail(f"Execution {execution_arn} did not complete within {EXECUTION_TIMEOUT}s")
 
 
 def _athena_query(sql: str) -> str:
@@ -104,14 +102,8 @@ def _clear_test_partition() -> None:
     Ensures each test starts with a clean silver state so row counts can be
     verified without interference from previous runs.
     """
-    _athena_query(
-        f"DELETE FROM silver_pitches_staging "
-        f"WHERE season = {SEASON} AND game_date = DATE '{GAME_DATE}'"
-    )
-    _athena_query(
-        f"DELETE FROM silver_pitches "
-        f"WHERE season = {SEASON} AND game_date = DATE '{GAME_DATE}'"
-    )
+    _athena_query(f"DELETE FROM silver_pitches_staging " f"WHERE season = {SEASON} AND game_date = DATE '{GAME_DATE}'")
+    _athena_query(f"DELETE FROM silver_pitches " f"WHERE season = {SEASON} AND game_date = DATE '{GAME_DATE}'")
 
 
 @pytest.mark.integration
@@ -140,8 +132,7 @@ class TestPipelineExecution:
 
         response = _wait_for_execution(execution_arn)
         assert response["status"] == "SUCCEEDED", (
-            f"Pipeline failed: {response.get('error', '')} "
-            f"{response.get('cause', '')}"
+            f"Pipeline failed: {response.get('error', '')} " f"{response.get('cause', '')}"
         )
 
         # Silver canonical should have rows
@@ -165,9 +156,7 @@ class TestPipelineExecution:
         (2025) doesn't match the season (2024), raising a ValueError that causes
         the Step Function to enter the FAILED state. No data loading occurs.
         """
-        execution_arn = _start_execution(
-            {"season": SEASON, "game_dates": ["2025-03-01"]}
-        )
+        execution_arn = _start_execution({"season": SEASON, "game_dates": ["2025-03-01"]})
 
         response = _wait_for_execution(execution_arn)
         assert response["status"] == "FAILED"

@@ -419,6 +419,17 @@ resource "aws_iam_role_policy" "terraform_managed_resources" {
         Action = ["secretsmanager:GetSecretValue"]
         Resource = "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:*/doubleday/cognito_identity_provider/*"
       },
+      {
+        Sid    = "CloudWatchDashboard"
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:PutDashboard",
+          "cloudwatch:DeleteDashboards",
+          "cloudwatch:GetDashboard",
+          "cloudwatch:ListDashboards",
+        ]
+        Resource = "*"
+      },
     ]
   })
 }

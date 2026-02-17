@@ -31,6 +31,7 @@ resource "aws_iam_role_policy" "pipeline" {
           var.silver_load_function_arn,
           var.gold_load_function_arn,
           var.clear_staging_function_arn,
+          var.check_failures_function_arn,
         ]
       },
       {
@@ -137,7 +138,18 @@ resource "aws_sfn_state_machine" "pipeline" {
                 "Payload.$"  = "$"
               }
               ResultPath = "$.silver_result"
-              End        = true
+              Catch = [
+                {
+                  ErrorEquals = ["States.ALL"]
+                  ResultPath  = "$.error"
+                  Next        = "SilverLoadCatch"
+                }
+              ]
+              End = true
+            }
+            SilverLoadCatch = {
+              Type = "Pass"
+              End  = true
             }
           }
         }
@@ -190,7 +202,43 @@ resource "aws_sfn_state_machine" "pipeline" {
           }
         }
         ResultPath = null
-        Next       = "Succeed"
+        Next       = "CheckFailures"
+      }
+
+      CheckFailures = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::lambda:invoke"
+        Parameters = {
+          FunctionName = var.check_failures_function_arn
+          Payload = {
+            "batch_id.$" = "$.batch_id"
+          }
+        }
+        ResultSelector = {
+          "failure_count.$"     = "$.Payload.failure_count"
+          "failed_game_dates.$" = "$.Payload.failed_game_dates"
+          "failure_summary.$"   = "$.Payload.failure_summary"
+        }
+        ResultPath = "$.check_result"
+        Next       = "HasFailures"
+      }
+
+      HasFailures = {
+        Type = "Choice"
+        Choices = [
+          {
+            Variable             = "$.check_result.failure_count"
+            NumericGreaterThan   = 0
+            Next                 = "PipelineFail"
+          }
+        ]
+        Default = "Succeed"
+      }
+
+      PipelineFail = {
+        Type      = "Fail"
+        Error     = "SilverLoadPartialFailure"
+        CausePath = "$.check_result.failure_summary"
       }
 
       Succeed = {
