@@ -59,5 +59,10 @@ builds/
 data/
 .env
 
+# Frontend
+node_modules/
+frontend/dist/
+frontend/.env*
+
 # Claude Code
 .claude/

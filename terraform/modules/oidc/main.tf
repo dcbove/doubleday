@@ -97,12 +97,28 @@ resource "aws_iam_role_policy" "terraform_managed_resources" {
           "s3:GetLifecycleConfiguration",
           "s3:GetReplicationConfiguration",
           "s3:ListBucket",
+          "s3:PutBucketPolicy",
+          "s3:DeleteBucketPolicy",
           "s3:PutBucketPublicAccessBlock",
           "s3:PutBucketTagging",
           "s3:PutEncryptionConfiguration",
         ]
         Resource = [
           "arn:aws:s3:::${var.project}-*",
+        ]
+      },
+      {
+        Sid    = "S3FrontendObjects"
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+          "s3:ListBucket",
+        ]
+        Resource = [
+          "arn:aws:s3:::${var.project}-*-frontend",
+          "arn:aws:s3:::${var.project}-*-frontend/*",
         ]
       },
       {
@@ -414,9 +430,9 @@ resource "aws_iam_role_policy" "terraform_managed_resources" {
         Resource = "*"
       },
       {
-        Sid    = "SecretsManager"
-        Effect = "Allow"
-        Action = ["secretsmanager:GetSecretValue"]
+        Sid      = "SecretsManager"
+        Effect   = "Allow"
+        Action   = ["secretsmanager:GetSecretValue"]
         Resource = "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:*/doubleday/cognito_identity_provider/*"
       },
       {
@@ -427,6 +443,30 @@ resource "aws_iam_role_policy" "terraform_managed_resources" {
           "cloudwatch:DeleteDashboards",
           "cloudwatch:GetDashboard",
           "cloudwatch:ListDashboards",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "CloudFront"
+        Effect = "Allow"
+        Action = [
+          "cloudfront:CreateDistribution",
+          "cloudfront:DeleteDistribution",
+          "cloudfront:GetDistribution",
+          "cloudfront:UpdateDistribution",
+          "cloudfront:TagResource",
+          "cloudfront:ListTagsForResource",
+          "cloudfront:CreateInvalidation",
+          "cloudfront:CreateOriginAccessControl",
+          "cloudfront:DeleteOriginAccessControl",
+          "cloudfront:GetOriginAccessControl",
+          "cloudfront:UpdateOriginAccessControl",
+          "cloudfront:CreateFunction",
+          "cloudfront:DeleteFunction",
+          "cloudfront:DescribeFunction",
+          "cloudfront:GetFunction",
+          "cloudfront:PublishFunction",
+          "cloudfront:UpdateFunction",
         ]
         Resource = "*"
       },

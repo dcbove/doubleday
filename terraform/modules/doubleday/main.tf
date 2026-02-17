@@ -80,6 +80,16 @@ module "api" {
     module.cognito.client_id,
     module.cognito.test_client_id,
   ])
-  domain_name           = var.api_domain_name
-  hosted_zone_name      = var.hosted_zone_name
+  domain_name      = var.api_domain_name
+  hosted_zone_name = var.hosted_zone_name
+}
+
+module "frontend" {
+  source           = "../frontend"
+  project          = var.project
+  environment      = var.environment
+  domain_name      = var.frontend_domain_name
+  hosted_zone_name = var.hosted_zone_name
+  api_domain_name  = var.api_domain_name
+  api_key          = module.api.api_key
 }

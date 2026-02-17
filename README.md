@@ -5,7 +5,7 @@ Analysis and processing of pitch-by-pitch MLB data sourced from Baseball Savant'
 ## Setup
 
 ```bash
-brew install pyenv uv
+brew install pyenv uv node
 pyenv install 3.13
 
 git clone <repo-url> doubleday
@@ -13,7 +13,7 @@ cd doubleday
 make install
 ```
 
-`make install` installs dependencies and configures the pre-commit hook (see [Pre-commit hooks](#pre-commit-hooks)).
+`make install` installs Python dependencies, frontend dependencies, and configures the pre-commit hook (see [Pre-commit hooks](#pre-commit-hooks)).
 
 ## Project structure
 
@@ -66,6 +66,7 @@ terraform/
       lambda/           # Pipeline Lambda functions, IAM
       step_function/    # Pipeline Step Function, IAM, logging
     api/                # API Gateway, query Lambda, authorizer Lambda, custom domain
+    frontend/           # S3 bucket, CloudFront distribution, OAC, domain
     cognito/            # Cognito user pool with Google federation
     oidc/               # GitHub Actions OIDC provider and IAM role
   environments/
@@ -94,6 +95,28 @@ tests/
       test_query_pitches_synthetic.py       # API integration — synthetic Lambda events
       test_query_pitches_gateway.py         # API integration — test-invoke-method (no auth)
       test_query_pitches_auth.py            # API integration — end-to-end HTTPS with auth
+frontend/
+  index.html              # Entry HTML
+  package.json            # Dependencies: React 19, Vite 6, Tailwind v4, Amplify v6
+  vite.config.js          # Dev proxy (/api/* → API Gateway), Tailwind plugin
+  src/
+    main.jsx              # Entry point, imports Amplify config
+    App.jsx               # BrowserRouter + Routes
+    index.css             # Tailwind import
+    auth/
+      amplifyConfig.js    # Amplify.configure() with Cognito PKCE settings
+      AuthProvider.jsx    # React Context: user state, login, logout, getAccessToken
+      useAuth.js          # useContext(AuthContext) hook
+      ProtectedRoute.jsx  # Redirects to / if not authenticated
+    api/
+      client.js           # fetch wrapper with Bearer token injection
+    pages/
+      Landing.jsx         # Public: "Sign in with Google" button
+      Callback.jsx        # Handles Cognito OAuth redirect
+      Dashboard.jsx       # Protected: placeholder
+    components/
+      Layout.jsx          # App shell with Navbar + content area
+      Navbar.jsx          # Logo, nav links, user info, logout button
 scripts/
   download_year.sh      # Download Statcast CSVs from Baseball Savant
 ```
@@ -109,6 +132,8 @@ make lint               # Lint and auto-fix with ruff
 make format             # Format with black
 make typecheck          # Type check with mypy
 make check-all          # Run all checks (lint, format, typecheck, unit tests)
+make frontend-dev       # Start frontend dev server (http://localhost:5173)
+make frontend-build     # Build frontend for production
 ```
 
 ### Pre-commit hooks
@@ -345,23 +370,69 @@ GET /pitchers/{pitcher_id}/pitches?season={season}&pitch_type={pitch_type}
 
 Returns pitch-shape stats (movement, velocity, spin, usage) from `gold_pitches_shape_season`.
 
+### Domain layout
+
+- `doubleday-<env>.appleforge.com` — CloudFront serves the SPA and proxies `/api/*` to API Gateway. The `x-api-key` header is injected by CloudFront, so browser clients never need it.
+- `api.doubleday-<env>.appleforge.com` — API Gateway directly, for non-browser clients. Requires `x-api-key` header.
+
 ### Authentication
 
-1. Obtain a token from the Cognito hosted UI:
-   ```
-   https://doubleday-<env>.auth.us-east-1.amazoncognito.com/login?client_id=<client_id>&response_type=token&scope=openid+email+profile&redirect_uri=<callback_url>
-   ```
+1. **Browser**: Sign in via the SPA at `https://doubleday-<env>.appleforge.com` — Cognito OAuth flow with Google federation.
 
-2. Include the token in the `Authorization` header:
+2. **CLI / non-browser**: Include the token and API key:
    ```bash
    curl -H "Authorization: Bearer <token>" \
         -H "x-api-key: <api_key>" \
-        "https://doubleday-dev.appleforge.com/pitchers/605151/pitches?season=2024"
+        "https://api.doubleday-dev.appleforge.com/pitchers/605151/pitches?season=2024"
    ```
+
+### Decoding a JWT
+
+To inspect the claims in a JWT token (useful for debugging auth issues):
+
+```bash
+echo "$TOKEN" | cut -d. -f2 | tr '_-' '/+' | awk '{while(length%4)$0=$0"="}1' | base64 -d | python3 -m json.tool
+```
+
+Key claims to look for: `token_use` (`id` or `access`), `aud` (id tokens), `client_id` (access tokens), `iss`, `exp`.
 
 ### Rate limiting
 
-Requests require an API key (`x-api-key` header) and are subject to rate limiting (default: 50 req/s steady, 100 req/s burst).
+Requests require an API key (`x-api-key` header) and are subject to rate limiting (default: 50 req/s steady, 100 req/s burst). Browser requests through CloudFront have the API key injected automatically.
+
+## Frontend
+
+React SPA served from S3 via CloudFront at `https://doubleday-<env>.appleforge.com`. Authenticates users via Cognito (Google federation) using Amplify v6 PKCE flow.
+
+### Architecture
+
+```
+Browser → CloudFront (doubleday-<env>.appleforge.com)
+            ├── /*       → S3 origin (static SPA assets, OAC)
+            └── /api/*   → CF Function (strip /api) → API Gateway (api.doubleday-<env>.appleforge.com)
+                                                        x-api-key injected as custom origin header
+```
+
+### Local development
+
+Create `frontend/.env.local` (gitignored) with your Cognito and API key values:
+
+```bash
+# From: cd terraform/environments/dev && terraform output
+VITE_COGNITO_USER_POOL_ID=<cognito_user_pool_id>
+VITE_COGNITO_CLIENT_ID=<cognito_client_id>
+VITE_COGNITO_DOMAIN=doubleday-dev
+VITE_COGNITO_REGION=us-east-1
+VITE_REDIRECT_SIGN_IN=http://localhost:5173/callback
+VITE_REDIRECT_SIGN_OUT=http://localhost:5173
+VITE_API_KEY=<api_key>
+```
+
+```bash
+make frontend-dev       # http://localhost:5173
+```
+
+The Vite dev server proxies `/api/*` to `https://api.doubleday-dev.appleforge.com`, strips the `/api` prefix, and injects the `x-api-key` header — mirroring CloudFront behavior in production.
 
 ## Testing
 
@@ -429,7 +500,7 @@ The auth integration tests authenticate against a dedicated Cognito test client 
        "test_email": "integration-test@doubleday.dev",
        "test_password": "<your-chosen-password>",
        "api_key": "'"$API_KEY"'",
-       "api_url": "https://doubleday-dev.appleforge.com"
+       "api_url": "https://api.doubleday-dev.appleforge.com"
      }'
    ```
 
@@ -475,6 +546,7 @@ terraform apply
 | `pipeline/step_function` | Pipeline Step Function, IAM role, CloudWatch logging |
 | `cognito` | Cognito user pool with Google federation, hosted UI |
 | `api` | API Gateway REST API, authorizer Lambda, query Lambda, custom domain, rate limiting |
+| `frontend` | S3 bucket (OAC), CloudFront distribution, CF Function, ACM cert, Route53 |
 | `oidc` | GitHub Actions OIDC provider and IAM role (dev only, account-level) |
 
 Environment files (`dev/main.tf`, `prod/main.tf`) call `module "doubleday"` and pass variables — they never reference child modules directly. All inter-module wiring lives in the composition module.
@@ -489,10 +561,12 @@ Infrastructure changes are deployed automatically via GitHub Actions using OIDC 
 
 ### CI/CD workflows
 
-- **`terraform-plan.yml`** — runs on PRs that touch `terraform/`, `src/`, or `sql/`. Applies dev and plans prod (posting the plan as a PR comment).
-- **`terraform-apply.yml`** — runs on push to `main` that touches `terraform/`, `src/`, or `sql/`. Applies prod.
+- **`terraform-plan.yml`** — runs on PRs that touch `terraform/`, `src/`, `sql/`, or `frontend/`. Applies dev (infra + frontend build/deploy) and plans prod (posting the plan as a PR comment).
+- **`terraform-apply.yml`** — runs on push to `main` that touches `terraform/`, `src/`, `sql/`, or `frontend/`. Applies prod and deploys the frontend.
 
 Dev is deployed during the PR lifecycle so changes can be tested before merging. Prod is deployed only after merging to `main`.
+
+After Terraform apply, the CI pipeline builds the frontend (`npm run build` with Cognito env vars from Terraform outputs), syncs the dist to S3, and invalidates the CloudFront cache.
 
 ### Bootstrap (one-time setup)
 

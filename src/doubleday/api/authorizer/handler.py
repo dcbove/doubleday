@@ -1,4 +1,25 @@
-"""Lambda handler for API authorizer — validate Cognito JWT tokens."""
+"""API Gateway TOKEN authorizer — validate Cognito JWT tokens.
+
+Receives a Bearer token from the Authorization header on every API request,
+verifies the signature against the Cognito JWKS endpoint, and returns an IAM
+policy document that either Allows or Denies ``execute-api:Invoke``.
+
+Accepts both Cognito token types:
+
+- **ID tokens** (``token_use=id``): carry user identity claims. The client is
+  identified by the ``aud`` claim.
+- **Access tokens** (``token_use=access``): carry authorization scopes. The
+  client is identified by the ``client_id`` claim (``aud`` is absent).
+
+Browser clients send access tokens (the correct OAuth pattern). The integration
+test client sends id tokens via ``USER_PASSWORD_AUTH``. Both are validated
+against the same ``COGNITO_CLIENT_IDS`` allowlist.
+
+Environment variables (read at module level, set by Terraform):
+    COGNITO_USER_POOL_ID: Cognito user pool ID (e.g. ``us-east-1_abc123``).
+    COGNITO_REGION: AWS region of the user pool.
+    COGNITO_CLIENT_IDS: Comma-separated list of allowed app client IDs.
+"""
 
 import json
 import os
@@ -84,13 +105,29 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
     try:
         public_key = _get_public_key(token)
+
+        # Decode without audience check first — access tokens use client_id
+        # instead of aud, so we validate the client separately.
         claims = jwt.decode(
             token,
             public_key,
             algorithms=["RS256"],
             issuer=ISSUER,
-            audience=COGNITO_CLIENT_IDS,
+            options={"verify_aud": False},
         )
+
+        # Validate client: id tokens have aud, access tokens have client_id
+        token_use = claims.get("token_use")
+        if token_use == "id":
+            token_client = claims.get("aud")
+        elif token_use == "access":
+            token_client = claims.get("client_id")
+        else:
+            raise jwt.InvalidTokenError(f"Unexpected token_use: {token_use}")
+
+        if token_client not in COGNITO_CLIENT_IDS:
+            raise jwt.InvalidTokenError(f"Client {token_client} not allowed")
+
         principal_id = claims.get("sub", "unknown")
         logger.info("Auth allowed", extra={"principal": principal_id})
         return _generate_policy(principal_id, "Allow", method_arn)

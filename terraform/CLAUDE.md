@@ -50,6 +50,18 @@ The deployment triggers in `gateway.tf` explicitly list resources from all endpo
 4. Add the new API GW resources to the deployment triggers in `gateway.tf`
 5. No changes to environment files or the composition module
 
+## Frontend Module (`modules/frontend/`)
+
+S3 bucket with Origin Access Control, CloudFront distribution, CF Function, ACM cert, and Route53 record. The SPA takes the root domain (`doubleday-{env}.appleforge.com`); the API lives at `api.doubleday-{env}.appleforge.com`.
+
+CloudFront has two behaviors:
+- Default (`/*`) → S3 origin (static assets, compressed, cached)
+- Ordered (`/api/*`) → API Gateway origin (no cache, CF Function strips `/api` prefix, `x-api-key` injected as custom origin header)
+
+SPA client-side routing is handled by a CloudFront Function on the default behavior that rewrites non-file URIs (paths without a `.`) to `/index.html`.
+
+The frontend is built and deployed by CI — not by Terraform. Terraform creates the bucket and distribution; GitHub Actions runs `npm run build` and `aws s3 sync`.
+
 ## Glue DDL (`modules/pipeline/glue/`)
 
 Table creation uses `null_resource` + `local-exec` to run Athena DDL via `scripts/run_athena_query.sh`. The `filemd5()` trigger re-runs DDL only when the SQL file changes. The `working_dir` must resolve to the project root (`${path.module}/../../../..` from `modules/pipeline/glue/`).

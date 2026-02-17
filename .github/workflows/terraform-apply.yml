@@ -8,6 +8,7 @@ on:
       - "terraform/**"
       - "src/**"
       - "sql/**"
+      - "frontend/**"
 
 permissions:
   id-token: write
@@ -48,6 +49,8 @@ jobs:
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -65,3 +68,38 @@ jobs:
       - name: Terraform Apply
         working-directory: terraform/environments/prod
         run: terraform apply -auto-approve
+
+      - name: Get Terraform outputs
+        id: tf
+        working-directory: terraform/environments/prod
+        run: |
+          echo "bucket=$(terraform output -raw frontend_bucket_name)" >> "$GITHUB_OUTPUT"
+          echo "distribution_id=$(terraform output -raw cloudfront_distribution_id)" >> "$GITHUB_OUTPUT"
+          echo "cognito_pool_id=$(terraform output -raw cognito_user_pool_id)" >> "$GITHUB_OUTPUT"
+          echo "cognito_client_id=$(terraform output -raw cognito_client_id)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          VITE_COGNITO_USER_POOL_ID: ${{ steps.tf.outputs.cognito_pool_id }}
+          VITE_COGNITO_CLIENT_ID: ${{ steps.tf.outputs.cognito_client_id }}
+          VITE_COGNITO_DOMAIN: doubleday-prod
+          VITE_COGNITO_REGION: us-east-1
+          VITE_REDIRECT_SIGN_IN: https://doubleday.appleforge.com/callback
+          VITE_REDIRECT_SIGN_OUT: https://doubleday.appleforge.com
+        run: npm run build
+
+      - name: Deploy frontend to S3
+        run: aws s3 sync frontend/dist "s3://${{ steps.tf.outputs.bucket }}" --delete
+
+      - name: Invalidate CloudFront cache
+        run: aws cloudfront create-invalidation --distribution-id "${{ steps.tf.outputs.distribution_id }}" --paths "/*"
