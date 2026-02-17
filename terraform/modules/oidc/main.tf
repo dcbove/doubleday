@@ -335,6 +335,16 @@ resource "aws_iam_role_policy" "terraform_managed_resources" {
         Resource = "arn:aws:apigateway:${var.region}::/domainnames"
       },
       {
+        Sid    = "APIGatewayTags"
+        Effect = "Allow"
+        Action = [
+          "apigateway:GET",
+          "apigateway:PUT",
+          "apigateway:DELETE",
+        ]
+        Resource = "arn:aws:apigateway:${var.region}::/tags/*"
+      },
+      {
         Sid    = "ACM"
         Effect = "Allow"
         Action = [
@@ -390,6 +400,8 @@ resource "aws_iam_role_policy" "terraform_managed_resources" {
           "cognito-idp:DeleteIdentityProvider",
           "cognito-idp:DescribeIdentityProvider",
           "cognito-idp:UpdateIdentityProvider",
+          "cognito-idp:ListTagsForResource",
+          "cognito-idp:TagResource",
         ]
         Resource = "arn:aws:cognito-idp:${var.region}:${data.aws_caller_identity.current.account_id}:userpool/*"
       },
