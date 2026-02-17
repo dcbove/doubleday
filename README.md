@@ -33,6 +33,8 @@ src/doubleday/
       pipeline.py       # Business logic — partition overwrite pipeline
     clear_staging/
       handler.py        # Lambda entry point — bulk delete staging rows by batch_id
+    check_failures/
+      handler.py        # Lambda entry point — read silver load failure records from S3
   api/
     query_pitches/
       handler.py        # API Gateway proxy handler — pitcher pitch-shape stats
@@ -306,10 +308,12 @@ A Standard Step Function orchestrates the full ETL pipeline:
 
 1. **ValidateInput** — validate all game_date years match season, default `force_download` to `false`, generate `batch_id`
 2. **BronzeLoadMap** (concurrency 5) — invoke `bronze_load` for each date (download from Baseball Savant to S3)
-3. **SilverLoadMap** (concurrency 5) — invoke `silver_load` for each date, passing `batch_id`
+3. **SilverLoadMap** (concurrency 5) — invoke `silver_load` for each date, passing `batch_id`. Individual failures are caught and recorded to S3 (`failures/silver_load/{batch_id}/{game_date}.json`); the map continues processing remaining dates.
 4. **ClearStaging** — invoke `clear_staging` to bulk-delete all staging rows for this `batch_id`
 5. **SetGoldTables** — inject hardcoded gold table list
 6. **GoldLoadMap** (concurrency 1) — invoke `gold_load` for each table with the season
+7. **CheckFailures** — invoke `check_failures` to scan S3 for failure records from this `batch_id`
+8. **HasFailures** — if any silver loads failed, the execution ends with `SilverLoadPartialFailure`; otherwise succeeds
 
 ### Invoking the Step Function
 
