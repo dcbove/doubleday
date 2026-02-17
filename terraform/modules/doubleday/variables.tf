@@ -42,3 +42,9 @@ variable "hosted_zone_name" {
   description = "Route53 hosted zone name"
   type        = string
 }
+
+variable "enable_test_client" {
+  description = "Whether to create a test Cognito client for integration testing"
+  type        = bool
+  default     = false
+}

@@ -22,3 +22,8 @@ output "hosted_ui_domain" {
   description = "Domain of the Cognito hosted UI"
   value       = aws_cognito_user_pool_domain.main.domain
 }
+
+output "test_client_id" {
+  description = "ID of the test app client (empty when disabled)"
+  value       = var.enable_test_client ? aws_cognito_user_pool_client.test[0].id : ""
+}

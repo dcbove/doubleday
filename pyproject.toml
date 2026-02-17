@@ -60,5 +60,7 @@ dev = [
     "boto3-stubs[athena]>=1.35.0",
     "mypy>=1.18.2",
     "pytest>=9.0.0",
+    "requests>=2.31.0",
     "ruff>=0.14.4",
+    "types-requests>=2.31.0",
 ]

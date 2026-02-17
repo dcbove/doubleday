@@ -8,7 +8,7 @@ policy document that either Allows or Denies the request.
 These tests mock the JWT library and JWKS key retrieval to test the handler's
 branching logic: valid tokens, expired tokens, malformed tokens, and missing
 tokens. Environment variables (COGNITO_USER_POOL_ID, COGNITO_REGION,
-COGNITO_CLIENT_ID) are set before import because the handler reads them at
+COGNITO_CLIENT_IDS) are set before import because the handler reads them at
 module level.
 """
 
@@ -20,7 +20,7 @@ import pytest
 # Set env vars before importing handler (module-level os.environ reads)
 os.environ.setdefault("COGNITO_USER_POOL_ID", "us-east-1_TestPool")
 os.environ.setdefault("COGNITO_REGION", "us-east-1")
-os.environ.setdefault("COGNITO_CLIENT_ID", "test-client-id")
+os.environ.setdefault("COGNITO_CLIENT_IDS", "test-client-id")
 
 from doubleday.api.authorizer.handler import handler  # noqa: E402
 

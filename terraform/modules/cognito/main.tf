@@ -60,6 +60,20 @@ resource "aws_cognito_user_pool_client" "main" {
   depends_on = [aws_cognito_identity_provider.google]
 }
 
+resource "aws_cognito_user_pool_client" "test" {
+  count = var.enable_test_client ? 1 : 0
+
+  name         = "${var.project}-${var.environment}-test-client"
+  user_pool_id = aws_cognito_user_pool.main.id
+
+  generate_secret = false
+
+  explicit_auth_flows = [
+    "ALLOW_USER_PASSWORD_AUTH",
+    "ALLOW_REFRESH_TOKEN_AUTH",
+  ]
+}
+
 resource "aws_cognito_user_pool_domain" "main" {
   domain       = "${var.project}-${var.environment}"
   user_pool_id = aws_cognito_user_pool.main.id

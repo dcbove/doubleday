@@ -53,9 +53,9 @@ variable "cognito_user_pool_arn" {
   type        = string
 }
 
-variable "cognito_client_id" {
-  description = "ID of the Cognito user pool client"
-  type        = string
+variable "cognito_client_ids" {
+  description = "IDs of the Cognito user pool clients (main + optional test)"
+  type        = list(string)
 }
 
 variable "domain_name" {

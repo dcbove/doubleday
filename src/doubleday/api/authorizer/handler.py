@@ -13,7 +13,7 @@ logger = Logger()
 
 COGNITO_USER_POOL_ID = os.environ["COGNITO_USER_POOL_ID"]
 COGNITO_REGION = os.environ["COGNITO_REGION"]
-COGNITO_CLIENT_ID = os.environ["COGNITO_CLIENT_ID"]
+COGNITO_CLIENT_IDS = os.environ["COGNITO_CLIENT_IDS"].split(",")
 
 JWKS_URL = (
     f"https://cognito-idp.{COGNITO_REGION}.amazonaws.com"
@@ -92,7 +92,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             public_key,
             algorithms=["RS256"],
             issuer=ISSUER,
-            audience=COGNITO_CLIENT_ID,
+            audience=COGNITO_CLIENT_IDS,
         )
         principal_id = claims.get("sub", "unknown")
         logger.info("Auth allowed", extra={"principal": principal_id})

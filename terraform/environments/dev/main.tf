@@ -20,6 +20,7 @@ module "doubleday" {
   cognito_logout_urls   = var.cognito_logout_urls
   api_domain_name       = var.api_domain_name
   hosted_zone_name      = var.hosted_zone_name
+  enable_test_client    = true
 }
 
 module "oidc" {
@@ -35,4 +36,20 @@ module "oidc" {
 output "github_actions_role_arn" {
   description = "ARN of the GitHub Actions OIDC role"
   value       = module.oidc.role_arn
+}
+
+output "cognito_user_pool_id" {
+  description = "ID of the Cognito user pool"
+  value       = module.doubleday.cognito_user_pool_id
+}
+
+output "cognito_test_client_id" {
+  description = "ID of the test Cognito client"
+  value       = module.doubleday.cognito_test_client_id
+}
+
+output "api_key" {
+  description = "API key for rate-limited access"
+  value       = module.doubleday.api_key
+  sensitive   = true
 }

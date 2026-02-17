@@ -13,3 +13,13 @@ output "api_key" {
   value       = module.api.api_key
   sensitive   = true
 }
+
+output "cognito_user_pool_id" {
+  description = "ID of the Cognito user pool"
+  value       = module.cognito.user_pool_id
+}
+
+output "cognito_test_client_id" {
+  description = "ID of the test Cognito client (empty when disabled)"
+  value       = module.cognito.test_client_id
+}

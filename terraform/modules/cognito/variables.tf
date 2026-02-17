@@ -29,3 +29,9 @@ variable "logout_urls" {
   description = "List of allowed logout URLs for the Cognito client"
   type        = list(string)
 }
+
+variable "enable_test_client" {
+  description = "Whether to create a test app client for integration testing"
+  type        = bool
+  default     = false
+}

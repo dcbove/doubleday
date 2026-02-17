@@ -52,6 +52,7 @@ module "cognito" {
   google_client_secret = local.google_oauth["google_client_secret"]
   callback_urls        = var.cognito_callback_urls
   logout_urls          = var.cognito_logout_urls
+  enable_test_client   = var.enable_test_client
 }
 
 module "api" {
@@ -67,7 +68,10 @@ module "api" {
   lambda_package_hash   = data.archive_file.lambda_package.output_base64sha256
   cognito_user_pool_id  = module.cognito.user_pool_id
   cognito_user_pool_arn = module.cognito.user_pool_arn
-  cognito_client_id     = module.cognito.client_id
+  cognito_client_ids = compact([
+    module.cognito.client_id,
+    module.cognito.test_client_id,
+  ])
   domain_name           = var.api_domain_name
   hosted_zone_name      = var.hosted_zone_name
 }

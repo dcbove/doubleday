@@ -1,10 +1,14 @@
-"""Integration tests for the query_pitches API Lambda.
+"""Synthetic integration tests for the query_pitches API Lambda.
 
 These tests invoke the deployed Lambda directly with synthetic API Gateway
 proxy events — the same JSON structure that API Gateway sends on a real
-request, but constructed in the test. This bypasses authentication (the
-authorizer Lambda and API key check) and tests the handler's event parsing
-and Athena query logic against real data in the dev environment.
+request, but constructed in the test. This bypasses API Gateway entirely
+(no resource matching, no integration config, no authorizer) and tests the
+handler's event parsing and Athena query logic against real data in the dev
+environment.
+
+For tests that route through the real API Gateway, see
+``test_query_pitches_gateway.py``.
 
 Requires valid AWS credentials and existing gold table data for season 2025.
 """
@@ -76,7 +80,7 @@ def _invoke(event: dict[str, Any]) -> dict[str, Any]:
 
 
 @pytest.mark.integration
-class TestQueryPitches:
+class TestQueryPitchesSynthetic:
     """Test the query_pitches Lambda with synthetic API Gateway events."""
 
     def test_returns_pitch_data(self):

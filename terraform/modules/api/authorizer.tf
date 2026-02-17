@@ -50,7 +50,7 @@ resource "aws_lambda_function" "authorizer" {
     variables = {
       COGNITO_USER_POOL_ID         = var.cognito_user_pool_id
       COGNITO_REGION               = var.region
-      COGNITO_CLIENT_ID            = var.cognito_client_id
+      COGNITO_CLIENT_IDS           = join(",", var.cognito_client_ids)
       POWERTOOLS_METRICS_NAMESPACE = "Doubleday"
       POWERTOOLS_SERVICE_NAME      = "api_authorizer"
     }
