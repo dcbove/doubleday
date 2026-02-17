@@ -4,7 +4,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig(({ mode }) => {
-  if (!fs.existsSync(".env.local")) {
+  if (mode === "development" && !fs.existsSync(".env.local")) {
     throw new Error(
       "Missing frontend/.env.local — create it with your Cognito and API key values.\n" +
         "See the 'Local development' section in the README for the required variables.",
