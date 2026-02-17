@@ -31,7 +31,7 @@ Each API Lambda lives in `src/doubleday/api/<name>/` with:
 
 - **Composition module** (`terraform/modules/doubleday/`): Wires all child modules together and builds the shared Lambda zip. Environments call this single module.
 - **Pipeline modules** (`terraform/modules/pipeline/`): s3, glue, lambda, step_function. Lambda functions receive the shared zip as variables.
-- **Cognito module** (`terraform/modules/cognito/`): User pool with Google federation.
+- **Cognito module** (`terraform/modules/cognito/`): User pool with Google federation. Optional test client (`enable_test_client`) for integration testing via `USER_PASSWORD_AUTH`.
 - **API module** (`terraform/modules/api/`): API Gateway, authorizer Lambda, query Lambda, custom domain, rate limiting. Each endpoint is a self-contained `.tf` file (Lambda + IAM + API GW resources + CORS).
 - **Environments** (`terraform/environments/{dev,prod}/main.tf`): Call `module "doubleday"` and pass variables. Dev adds `module "oidc"`; prod does not.
 - See `terraform/CLAUDE.md` for detailed Terraform architecture and conventions.
@@ -39,7 +39,10 @@ Each API Lambda lives in `src/doubleday/api/<name>/` with:
 ### Test Pattern
 
 - Unit tests in `tests/unit/`, mirroring the source structure: `tests/unit/api/`, `tests/unit/pipeline/`, `tests/unit/util/`.
-- Integration tests in `tests/integration/`.
+- Integration tests in `tests/integration/`. API integration tests have three tiers:
+  - **Synthetic** (`test_query_pitches_synthetic.py`): invoke the Lambda handler directly with crafted events.
+  - **Gateway** (`test_query_pitches_gateway.py`): use `test-invoke-method` to exercise API Gateway routing without auth.
+  - **Auth** (`test_query_pitches_auth.py`): full HTTPS requests with a real Cognito JWT and API key. Credentials are read from Secrets Manager (`dev/doubleday/cognito_identity_provider/integration_test_credentials`).
 - Use `MagicMock` for AWS clients, `@patch` for module-level functions (e.g., `doubleday.pipeline.<name>.pipeline.run_query`).
 - Fixtures with `tmp_path` for SQL template files.
 - For `botocore.exceptions.ClientError` mocking: import the real exception class and set `s3.exceptions.ClientError = ClientError` on the mock.
