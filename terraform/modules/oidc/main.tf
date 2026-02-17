@@ -250,6 +250,163 @@ resource "aws_iam_role_policy" "terraform_managed_resources" {
           "arn:aws:s3:::${var.athena_results_bucket}/*",
         ]
       },
+      {
+        Sid    = "APIGateway"
+        Effect = "Allow"
+        Action = [
+          "apigateway:GET",
+          "apigateway:POST",
+          "apigateway:PUT",
+          "apigateway:PATCH",
+          "apigateway:DELETE",
+        ]
+        Resource = "arn:aws:apigateway:${var.region}::/restapis/*"
+      },
+      {
+        Sid    = "APIGatewayTopLevel"
+        Effect = "Allow"
+        Action = [
+          "apigateway:POST",
+          "apigateway:GET",
+        ]
+        Resource = "arn:aws:apigateway:${var.region}::/restapis"
+      },
+      {
+        Sid    = "APIGatewayApiKeys"
+        Effect = "Allow"
+        Action = [
+          "apigateway:GET",
+          "apigateway:POST",
+          "apigateway:PUT",
+          "apigateway:PATCH",
+          "apigateway:DELETE",
+        ]
+        Resource = "arn:aws:apigateway:${var.region}::/apikeys/*"
+      },
+      {
+        Sid    = "APIGatewayApiKeysTopLevel"
+        Effect = "Allow"
+        Action = [
+          "apigateway:POST",
+          "apigateway:GET",
+        ]
+        Resource = "arn:aws:apigateway:${var.region}::/apikeys"
+      },
+      {
+        Sid    = "APIGatewayUsagePlans"
+        Effect = "Allow"
+        Action = [
+          "apigateway:GET",
+          "apigateway:POST",
+          "apigateway:PUT",
+          "apigateway:PATCH",
+          "apigateway:DELETE",
+        ]
+        Resource = "arn:aws:apigateway:${var.region}::/usageplans/*"
+      },
+      {
+        Sid    = "APIGatewayUsagePlansTopLevel"
+        Effect = "Allow"
+        Action = [
+          "apigateway:POST",
+          "apigateway:GET",
+        ]
+        Resource = "arn:aws:apigateway:${var.region}::/usageplans"
+      },
+      {
+        Sid    = "APIGatewayDomainNames"
+        Effect = "Allow"
+        Action = [
+          "apigateway:GET",
+          "apigateway:POST",
+          "apigateway:PUT",
+          "apigateway:PATCH",
+          "apigateway:DELETE",
+        ]
+        Resource = "arn:aws:apigateway:${var.region}::/domainnames/*"
+      },
+      {
+        Sid    = "APIGatewayDomainNamesTopLevel"
+        Effect = "Allow"
+        Action = [
+          "apigateway:POST",
+          "apigateway:GET",
+        ]
+        Resource = "arn:aws:apigateway:${var.region}::/domainnames"
+      },
+      {
+        Sid    = "ACM"
+        Effect = "Allow"
+        Action = [
+          "acm:DescribeCertificate",
+          "acm:GetCertificate",
+          "acm:ListTagsForCertificate",
+          "acm:RequestCertificate",
+          "acm:DeleteCertificate",
+          "acm:AddTagsToCertificate",
+        ]
+        Resource = "arn:aws:acm:${var.region}:${data.aws_caller_identity.current.account_id}:certificate/*"
+      },
+      {
+        Sid    = "Route53"
+        Effect = "Allow"
+        Action = [
+          "route53:ListHostedZones",
+          "route53:GetHostedZone",
+          "route53:ListTagsForResource",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "Route53Records"
+        Effect = "Allow"
+        Action = [
+          "route53:ChangeResourceRecordSets",
+          "route53:GetChange",
+          "route53:ListResourceRecordSets",
+        ]
+        Resource = [
+          "arn:aws:route53:::hostedzone/*",
+          "arn:aws:route53:::change/*",
+        ]
+      },
+      {
+        Sid    = "Cognito"
+        Effect = "Allow"
+        Action = [
+          "cognito-idp:CreateUserPool",
+          "cognito-idp:DeleteUserPool",
+          "cognito-idp:DescribeUserPool",
+          "cognito-idp:GetUserPoolMfaConfig",
+          "cognito-idp:SetUserPoolMfaConfig",
+          "cognito-idp:UpdateUserPool",
+          "cognito-idp:CreateUserPoolClient",
+          "cognito-idp:DeleteUserPoolClient",
+          "cognito-idp:DescribeUserPoolClient",
+          "cognito-idp:UpdateUserPoolClient",
+          "cognito-idp:CreateUserPoolDomain",
+          "cognito-idp:DeleteUserPoolDomain",
+          "cognito-idp:CreateIdentityProvider",
+          "cognito-idp:DeleteIdentityProvider",
+          "cognito-idp:DescribeIdentityProvider",
+          "cognito-idp:UpdateIdentityProvider",
+        ]
+        Resource = "arn:aws:cognito-idp:${var.region}:${data.aws_caller_identity.current.account_id}:userpool/*"
+      },
+      {
+        Sid    = "CognitoDomain"
+        Effect = "Allow"
+        Action = [
+          "cognito-idp:DescribeUserPoolDomain",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "SecretsManager"
+        Effect = "Allow"
+        Action = ["secretsmanager:GetSecretValue"]
+        Resource = "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:*/doubleday/cognito_identity_provider/*"
+      },
     ]
   })
 }

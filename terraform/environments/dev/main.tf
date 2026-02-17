@@ -9,40 +9,18 @@ provider "aws" {
   }
 }
 
-module "s3" {
-  source      = "../../modules/s3"
-  project     = var.project
-  environment = var.environment
-}
-
-module "glue" {
-  source                = "../../modules/glue"
+module "doubleday" {
+  source                = "../../modules/doubleday"
   project               = var.project
   environment           = var.environment
-  lakehouse_bucket_name = module.s3.lakehouse_bucket_name
+  region                = var.region
   athena_results_bucket = var.athena_results_bucket
-}
-
-module "lambda" {
-  source                = "../../modules/lambda"
-  project               = var.project
-  environment           = var.environment
-  glue_database         = module.glue.database_name
-  athena_results_bucket = var.athena_results_bucket
-  lakehouse_bucket_arn  = module.s3.lakehouse_bucket_arn
-  lakehouse_bucket_name = module.s3.lakehouse_bucket_name
   powertools_layer_arn  = var.powertools_layer_arn
-}
-
-module "step_function" {
-  source                   = "../../modules/step_function"
-  project                  = var.project
-  environment              = var.environment
-  silver_load_function_arn     = module.lambda.silver_load_function_arn
-  gold_load_function_arn       = module.lambda.gold_load_function_arn
-  bronze_load_function_arn     = module.lambda.bronze_load_function_arn
-  validate_input_function_arn  = module.lambda.validate_input_function_arn
-  clear_staging_function_arn   = module.lambda.clear_staging_function_arn
+  cognito_callback_urls = var.cognito_callback_urls
+  cognito_logout_urls   = var.cognito_logout_urls
+  api_domain_name       = var.api_domain_name
+  hosted_zone_name      = var.hosted_zone_name
+  enable_test_client    = true
 }
 
 module "oidc" {
@@ -56,6 +34,22 @@ module "oidc" {
 }
 
 output "github_actions_role_arn" {
-  description = "ARN of the GitHub Actions OIDC role — add as AWS_ROLE_ARN secret"
+  description = "ARN of the GitHub Actions OIDC role"
   value       = module.oidc.role_arn
+}
+
+output "cognito_user_pool_id" {
+  description = "ID of the Cognito user pool"
+  value       = module.doubleday.cognito_user_pool_id
+}
+
+output "cognito_test_client_id" {
+  description = "ID of the test Cognito client"
+  value       = module.doubleday.cognito_test_client_id
+}
+
+output "api_key" {
+  description = "API key for rate-limited access"
+  value       = module.doubleday.api_key
+  sensitive   = true
 }

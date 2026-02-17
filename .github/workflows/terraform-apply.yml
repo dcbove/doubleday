@@ -30,6 +30,9 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-east-1
 
+      - name: Build Lambda package
+        run: ./scripts/build_lambda_package.sh
+
       - name: Terraform Init
         working-directory: terraform/environments/prod
         run: terraform init

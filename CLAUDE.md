@@ -11,31 +11,48 @@ Run `ruff check` before committing. Fix any violations — do not suppress with 
 
 ## Project Architecture
 
-Statcast ETL pipeline: Bronze (raw CSV) → Silver (typed Iceberg) → Gold (aggregated Iceberg). Orchestrated by a Step Function, all serverless on AWS.
+Statcast ETL pipeline: Bronze (raw CSV) → Silver (typed Iceberg) → Gold (aggregated Iceberg). Orchestrated by a Step Function, all serverless on AWS. REST API layer serves gold table data to authenticated users.
 
-### Lambda Pattern
+### Pipeline Lambda Pattern
 
-Each Lambda lives in `src/doubleday/lambdas/<name>/` with:
+Each pipeline Lambda lives in `src/doubleday/pipeline/<name>/` with:
 - `__init__.py` — module docstring only
 - `handler.py` — Lambda entry point. Parses event, calls pipeline, emits Powertools metrics, returns `{statusCode, body}`. Module-level clients/config from env vars.
 - `pipeline.py` — Business logic. Returns a `@dataclass LoadResult`. No Lambda runtime dependencies. Exception: `validate_input` and `clear_staging` have no pipeline (logic is simple enough for handler alone).
 
+### API Lambda Pattern
+
+Each API Lambda lives in `src/doubleday/api/<name>/` with:
+- `__init__.py` — module docstring only
+- `handler.py` — API Gateway proxy handler. Parses path/query params, calls pipeline, returns `{statusCode, headers, body}` with CORS headers.
+- `pipeline.py` — Business logic. Returns a `@dataclass` result. Exception: `authorizer` has no pipeline (JWT validation is simple enough for handler alone).
+
 ### Terraform Pattern
 
-- **Lambda module** (`terraform/modules/lambda/`): One `.tf` file per Lambda with IAM role + policy + `aws_lambda_function`. All share a single zip from `package.tf`. Outputs: `<name>_function_arn` and `<name>_function_name`.
-- **Step Function module** (`terraform/modules/step_function/`): IAM policy lists all Lambda ARNs. State machine definition uses `jsonencode()` inline.
-- **Environments** (`terraform/environments/{dev,prod}/main.tf`): Wire module outputs → inputs. Dev has OIDC module; prod does not.
+- **Composition module** (`terraform/modules/doubleday/`): Wires all child modules together and builds the shared Lambda zip. Environments call this single module.
+- **Pipeline modules** (`terraform/modules/pipeline/`): s3, glue, lambda, step_function. Lambda functions receive the shared zip as variables.
+- **Cognito module** (`terraform/modules/cognito/`): User pool with Google federation. Optional test client (`enable_test_client`) for integration testing via `USER_PASSWORD_AUTH`.
+- **API module** (`terraform/modules/api/`): API Gateway, authorizer Lambda, query Lambda, custom domain, rate limiting. Each endpoint is a self-contained `.tf` file (Lambda + IAM + API GW resources + CORS).
+- **Environments** (`terraform/environments/{dev,prod}/main.tf`): Call `module "doubleday"` and pass variables. Dev adds `module "oidc"`; prod does not.
+- See `terraform/CLAUDE.md` for detailed Terraform architecture and conventions.
 
 ### Test Pattern
 
-- Unit tests in `tests/test_<name>.py`. Integration tests in `tests/integration/`.
-- Use `MagicMock` for AWS clients, `@patch` for module-level functions (e.g., `doubleday.lambdas.<name>.pipeline.run_query`).
+- Unit tests in `tests/unit/`, mirroring the source structure: `tests/unit/api/`, `tests/unit/pipeline/`, `tests/unit/util/`.
+- Integration tests in `tests/integration/`. API integration tests have three tiers:
+  - **Synthetic** (`test_query_pitches_synthetic.py`): invoke the Lambda handler directly with crafted events.
+  - **Gateway** (`test_query_pitches_gateway.py`): use `test-invoke-method` to exercise API Gateway routing without auth.
+  - **Auth** (`test_query_pitches_auth.py`): full HTTPS requests with a real Cognito JWT and API key. Credentials are read from Secrets Manager (`dev/doubleday/cognito_identity_provider/integration_test_credentials`).
+- Use `MagicMock` for AWS clients, `@patch` for module-level functions (e.g., `doubleday.pipeline.<name>.pipeline.run_query`).
 - Fixtures with `tmp_path` for SQL template files.
 - For `botocore.exceptions.ClientError` mocking: import the real exception class and set `s3.exceptions.ClientError = ClientError` on the mock.
 
 ### Key Paths
 
-- SQL templates: `sql/pipeline/` (bundled into Lambda zip as `doubleday/sql/`)
+- Pipeline SQL templates: `sql/pipeline/` (bundled into Lambda zip as `doubleday/sql/`)
+- API SQL templates: `sql/api/` (bundled into Lambda zip as `doubleday/sql/api/`)
 - DDL: `sql/ddl/`
 - Shared utilities: `src/doubleday/util/athena.py`
-- Lambda package: `terraform/modules/lambda/package.tf` bundles `src/doubleday/**/*.py` + `sql/pipeline/*.sql`
+- Lambda package: `terraform/modules/doubleday/package.tf` bundles `src/doubleday/**/*.py` + `sql/pipeline/*.sql` + `sql/api/*.sql` + pip deps (PyJWT, cryptography)
+- API code: `src/doubleday/api/`
+- Pipeline code: `src/doubleday/pipeline/`
