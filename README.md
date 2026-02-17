@@ -38,7 +38,7 @@ src/doubleday/
   api/
     query_pitches/
       handler.py        # API Gateway proxy handler — pitcher pitch-shape stats
-      pipeline.py       # Business logic — Athena query + result formatting
+      query.py          # Business logic — Athena query + result formatting
     authorizer/
       handler.py        # TOKEN authorizer — validate Cognito JWT tokens
   util/
@@ -82,7 +82,7 @@ tests/
     test_main.py                            # Main module unit tests
     api/
       test_authorizer_handler.py            # API authorizer unit tests
-      test_query_pitches_pipeline.py        # API query pitches unit tests
+      test_query_pitches_query.py            # API query pitches unit tests
     pipeline/
       test_bronze_load_pipeline.py          # Bronze load unit tests
       test_clear_staging_handler.py         # Clear staging unit tests

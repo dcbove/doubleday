@@ -11,7 +11,7 @@ from aws_lambda_powertools import Logger, Metrics
 from aws_lambda_powertools.metrics import MetricUnit
 
 import doubleday
-from doubleday.api.query_pitches.pipeline import query_pitches
+from doubleday.api.query_pitches.query import query_pitches
 
 athena = boto3.client("athena")
 logger = Logger()
