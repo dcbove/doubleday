@@ -1,6 +1,6 @@
-"""Unit tests for the query_pitches API pipeline (doubleday.api.query_pitches.pipeline).
+"""Unit tests for the query_pitches API query (doubleday.api.query_pitches.query).
 
-The query_pitches pipeline reads a SQL template, formats it with pitcher ID and
+The query_pitches module reads a SQL template, formats it with pitcher ID and
 season, executes it against Athena, and returns a QueryResult dataclass with
 typed pitch-shape statistics (movement, velocity, spin, usage).
 
@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from doubleday.api.query_pitches.pipeline import QueryResult, query_pitches
+from doubleday.api.query_pitches.query import QueryResult, query_pitches
 
 
 class TestQueryPitches:
@@ -34,8 +34,8 @@ class TestQueryPitches:
         )
         return tmp_path
 
-    @patch("doubleday.api.query_pitches.pipeline.get_query_results")
-    @patch("doubleday.api.query_pitches.pipeline.run_query")
+    @patch("doubleday.api.query_pitches.query.get_query_results")
+    @patch("doubleday.api.query_pitches.query.run_query")
     def test_returns_query_result_with_pitches(self, mock_run, mock_results, sql_dir):
         """Basic query returns QueryResult with typed pitch data."""
         mock_run.return_value = "exec-1"
@@ -74,8 +74,8 @@ class TestQueryPitches:
         assert result.pitches[0]["pitch_count"] == 800
         assert result.pitches[0]["pitch_type"] == "FF"
 
-    @patch("doubleday.api.query_pitches.pipeline.get_query_results")
-    @patch("doubleday.api.query_pitches.pipeline.run_query")
+    @patch("doubleday.api.query_pitches.query.get_query_results")
+    @patch("doubleday.api.query_pitches.query.run_query")
     def test_pitch_type_filter_appends_where_clause(self, mock_run, mock_results, sql_dir):
         """Optional pitch_type filter adds AND clause to SQL."""
         mock_run.return_value = "exec-1"
@@ -87,8 +87,8 @@ class TestQueryPitches:
         sql_arg = mock_run.call_args.args[1]
         assert "pitch_type = 'SL'" in sql_arg
 
-    @patch("doubleday.api.query_pitches.pipeline.get_query_results")
-    @patch("doubleday.api.query_pitches.pipeline.run_query")
+    @patch("doubleday.api.query_pitches.query.get_query_results")
+    @patch("doubleday.api.query_pitches.query.run_query")
     def test_empty_results_returns_empty_pitches(self, mock_run, mock_results, sql_dir):
         """Empty Athena result returns QueryResult with empty pitches list."""
         mock_run.return_value = "exec-1"
@@ -99,7 +99,7 @@ class TestQueryPitches:
 
         assert result.pitches == []
 
-    @patch("doubleday.api.query_pitches.pipeline.run_query")
+    @patch("doubleday.api.query_pitches.query.run_query")
     def test_athena_failure_propagates(self, mock_run, sql_dir):
         """Athena query failure propagates RuntimeError."""
         mock_run.side_effect = RuntimeError("Query FAILED: access denied")

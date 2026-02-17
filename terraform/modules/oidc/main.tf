@@ -416,6 +416,7 @@ resource "aws_iam_role_policy" "terraform_managed_resources" {
           "cognito-idp:DeleteIdentityProvider",
           "cognito-idp:DescribeIdentityProvider",
           "cognito-idp:UpdateIdentityProvider",
+          "cognito-idp:AddCustomAttributes",
           "cognito-idp:ListTagsForResource",
           "cognito-idp:TagResource",
         ]

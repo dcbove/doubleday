@@ -28,8 +28,8 @@ Each pipeline Lambda lives in `src/doubleday/pipeline/<name>/` with:
 
 Each API Lambda lives in `src/doubleday/api/<name>/` with:
 - `__init__.py` — module docstring only
-- `handler.py` — API Gateway proxy handler. Parses path/query params, calls pipeline, returns `{statusCode, headers, body}` with CORS headers.
-- `pipeline.py` — Business logic. Returns a `@dataclass` result. Exception: `authorizer` has no pipeline (JWT validation is simple enough for handler alone).
+- `handler.py` — API Gateway proxy handler. Parses path/query params, calls query module, returns `{statusCode, headers, body}` with CORS headers.
+- `query.py` — Business logic. Returns a `@dataclass` result. Exception: `authorizer` has no query module (JWT validation is simple enough for handler alone).
 
 ### Terraform Pattern
 

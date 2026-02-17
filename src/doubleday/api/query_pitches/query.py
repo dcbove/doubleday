@@ -1,4 +1,4 @@
-"""Query pitches pipeline — Athena query and result formatting."""
+"""Query pitches — Athena query and result formatting."""
 
 from dataclasses import dataclass, field
 from pathlib import Path

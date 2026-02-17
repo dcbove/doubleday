@@ -62,6 +62,7 @@ data/
 # Frontend
 node_modules/
 frontend/dist/
+frontend/.vite/
 frontend/.env*
 
 # Claude Code
