@@ -43,6 +43,11 @@ variable "hosted_zone_name" {
   type        = string
 }
 
+variable "frontend_domain_name" {
+  description = "Custom domain name for the frontend (e.g. doubleday-dev.appleforge.com)"
+  type        = string
+}
+
 variable "enable_test_client" {
   description = "Whether to create a test Cognito client for integration testing"
   type        = bool

@@ -33,6 +33,11 @@ variable "hosted_zone_name" {
   type        = string
 }
 
+variable "frontend_domain_name" {
+  description = "Custom domain name for the frontend"
+  type        = string
+}
+
 variable "cognito_callback_urls" {
   description = "Allowed callback URLs for Cognito client"
   type        = list(string)

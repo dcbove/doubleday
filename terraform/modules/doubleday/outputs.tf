@@ -19,7 +19,27 @@ output "cognito_user_pool_id" {
   value       = module.cognito.user_pool_id
 }
 
+output "cognito_client_id" {
+  description = "ID of the main Cognito client"
+  value       = module.cognito.client_id
+}
+
 output "cognito_test_client_id" {
   description = "ID of the test Cognito client (empty when disabled)"
   value       = module.cognito.test_client_id
+}
+
+output "frontend_bucket_name" {
+  description = "Name of the S3 bucket for frontend assets"
+  value       = module.frontend.frontend_bucket_name
+}
+
+output "cloudfront_distribution_id" {
+  description = "ID of the CloudFront distribution"
+  value       = module.frontend.cloudfront_distribution_id
+}
+
+output "frontend_url" {
+  description = "URL of the frontend"
+  value       = module.frontend.frontend_url
 }

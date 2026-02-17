@@ -23,6 +23,30 @@ resource "aws_cognito_user_pool" "main" {
       max_length = 256
     }
   }
+
+  schema {
+    name                = "name"
+    attribute_data_type = "String"
+    required            = false
+    mutable             = true
+
+    string_attribute_constraints {
+      min_length = 0
+      max_length = 256
+    }
+  }
+
+  schema {
+    name                = "picture"
+    attribute_data_type = "String"
+    required            = false
+    mutable             = true
+
+    string_attribute_constraints {
+      min_length = 0
+      max_length = 2048
+    }
+  }
 }
 
 resource "aws_cognito_identity_provider" "google" {
@@ -38,6 +62,8 @@ resource "aws_cognito_identity_provider" "google" {
 
   attribute_mapping = {
     email    = "email"
+    name     = "name"
+    picture  = "picture"
     username = "sub"
   }
 }

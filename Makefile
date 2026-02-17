@@ -1,4 +1,5 @@
-.PHONY: lint format typecheck test test-integration check-all run install install-hooks clean
+.PHONY: lint format typecheck test test-integration check-all run install install-hooks clean \
+	frontend-install frontend-build frontend-dev frontend-deploy frontend-clean
 
 # Linting and formatting
 lint:
@@ -20,7 +21,7 @@ check-all: lint format typecheck test
 	@echo "✅ All checks passed!"
 
 # Development
-install: install-hooks
+install: install-hooks frontend-install
 	uv sync --dev
 
 install-hooks:
@@ -29,8 +30,41 @@ install-hooks:
 run:
 	uv run doubleday
 
+# Frontend
+frontend-install:
+	cd frontend && npm install
+
+frontend-build: frontend-install
+	cd frontend && npm run build
+
+frontend-dev:
+	cd frontend && npm run dev
+
+frontend-deploy: frontend-install
+	$(eval ENV ?= dev)
+	$(eval TF_DIR := terraform/environments/$(ENV))
+	$(eval POOL_ID := $(shell cd $(TF_DIR) && terraform output -raw cognito_user_pool_id))
+	$(eval CLIENT_ID := $(shell cd $(TF_DIR) && terraform output -raw cognito_client_id))
+	$(eval BUCKET := $(shell cd $(TF_DIR) && terraform output -raw frontend_bucket_name))
+	$(eval DIST_ID := $(shell cd $(TF_DIR) && terraform output -raw cloudfront_distribution_id))
+	$(eval DOMAIN := $(shell grep frontend_domain_name $(TF_DIR)/terraform.tfvars | sed 's/.*"\(.*\)"/\1/'))
+	$(eval COGNITO_DOMAIN := $(shell echo doubleday-$(ENV)))
+	cd frontend && \
+		VITE_COGNITO_USER_POOL_ID=$(POOL_ID) \
+		VITE_COGNITO_CLIENT_ID=$(CLIENT_ID) \
+		VITE_COGNITO_DOMAIN=$(COGNITO_DOMAIN) \
+		VITE_COGNITO_REGION=us-east-1 \
+		VITE_REDIRECT_SIGN_IN=https://$(DOMAIN)/callback \
+		VITE_REDIRECT_SIGN_OUT=https://$(DOMAIN) \
+		npm run build
+	aws s3 sync frontend/dist "s3://$(BUCKET)" --delete
+	aws cloudfront create-invalidation --distribution-id "$(DIST_ID)" --paths "/*"
+
+frontend-clean:
+	rm -rf frontend/node_modules frontend/dist
+
 # Cleanup
-clean:
+clean: frontend-clean
 	find . -type f -name "*.pyc" -delete
 	find . -type d -name "__pycache__" -delete
 	find . -type d -name ".mypy_cache" -exec rm -rf {} +
@@ -39,14 +73,17 @@ clean:
 # Help
 help:
 	@echo "Available commands:"
-	@echo "  make install     - Install dependencies"
-	@echo "  make lint        - Run ruff linter"
-	@echo "  make format      - Format code with black"
-	@echo "  make format-check- Check if code is formatted"
-	@echo "  make typecheck   - Run mypy type checker"
-	@echo "  make test             - Run unit tests (excludes integration)"
-	@echo "  make test-integration - Run integration tests (requires AWS)"
-	@echo "  make check-all        - Run all checks (lint, format, typecheck, unit tests)"
-	@echo "  make run         - Run the application"
-	@echo "  make clean       - Clean up cache files"
-	@echo "  make help        - Show this help"
+	@echo "  make install            - Install all dependencies (Python + frontend)"
+	@echo "  make lint               - Run ruff linter"
+	@echo "  make format             - Format code with black"
+	@echo "  make typecheck          - Run mypy type checker"
+	@echo "  make test               - Run unit tests (excludes integration)"
+	@echo "  make test-integration   - Run integration tests (requires AWS)"
+	@echo "  make check-all          - Run all checks (lint, format, typecheck, unit tests)"
+	@echo "  make run                - Run the application"
+	@echo "  make frontend-install   - Install frontend dependencies"
+	@echo "  make frontend-build     - Build frontend for production"
+	@echo "  make frontend-deploy    - Build and deploy frontend (ENV=dev|prod)"
+	@echo "  make frontend-dev       - Start frontend dev server"
+	@echo "  make clean              - Clean up all cache files and build artifacts"
+	@echo "  make help               - Show this help"

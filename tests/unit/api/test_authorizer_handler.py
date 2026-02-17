@@ -48,10 +48,14 @@ class TestAuthorizerHandler:
 
     @patch("doubleday.api.authorizer.handler._get_public_key")
     @patch("doubleday.api.authorizer.handler.jwt")
-    def test_valid_token_returns_allow(self, mock_jwt, mock_get_key, lambda_context):
-        """Valid token returns Allow policy with user's sub as principalId."""
+    def test_valid_id_token_returns_allow(self, mock_jwt, mock_get_key, lambda_context):
+        """Valid id token returns Allow policy with user's sub as principalId."""
         mock_get_key.return_value = MagicMock()
-        mock_jwt.decode.return_value = {"sub": "user-123", "email": "test@test.com"}
+        mock_jwt.decode.return_value = {
+            "sub": "user-123",
+            "token_use": "id",
+            "aud": "test-client-id",
+        }
         mock_jwt.ExpiredSignatureError = Exception
         mock_jwt.InvalidTokenError = Exception
 
@@ -66,6 +70,55 @@ class TestAuthorizerHandler:
         statement = result["policyDocument"]["Statement"][0]
         assert statement["Effect"] == "Allow"
         assert statement["Resource"] == METHOD_ARN
+
+    @patch("doubleday.api.authorizer.handler._get_public_key")
+    @patch("doubleday.api.authorizer.handler.jwt")
+    def test_valid_access_token_returns_allow(self, mock_jwt, mock_get_key, lambda_context):
+        """Valid access token returns Allow policy with user's sub as principalId."""
+        mock_get_key.return_value = MagicMock()
+        mock_jwt.decode.return_value = {
+            "sub": "user-123",
+            "token_use": "access",
+            "client_id": "test-client-id",
+        }
+        mock_jwt.ExpiredSignatureError = Exception
+        mock_jwt.InvalidTokenError = Exception
+
+        event = {
+            "authorizationToken": "Bearer valid-access-token",
+            "methodArn": METHOD_ARN,
+        }
+
+        result = handler(event, lambda_context)
+
+        assert result["principalId"] == "user-123"
+        statement = result["policyDocument"]["Statement"][0]
+        assert statement["Effect"] == "Allow"
+
+    @patch("doubleday.api.authorizer.handler._get_public_key")
+    @patch("doubleday.api.authorizer.handler.jwt")
+    def test_wrong_client_id_returns_deny(self, mock_jwt, mock_get_key, lambda_context):
+        """Token with unrecognized client ID returns Deny policy."""
+        mock_get_key.return_value = MagicMock()
+        invalid_error = type("InvalidTokenError", (Exception,), {})
+        mock_jwt.decode.return_value = {
+            "sub": "user-123",
+            "token_use": "access",
+            "client_id": "wrong-client-id",
+        }
+        mock_jwt.ExpiredSignatureError = Exception
+        mock_jwt.InvalidTokenError = invalid_error
+
+        event = {
+            "authorizationToken": "Bearer valid-token-wrong-client",
+            "methodArn": METHOD_ARN,
+        }
+
+        result = handler(event, lambda_context)
+
+        assert result["principalId"] == "anonymous"
+        statement = result["policyDocument"]["Statement"][0]
+        assert statement["Effect"] == "Deny"
 
     @patch("doubleday.api.authorizer.handler._get_public_key")
     @patch("doubleday.api.authorizer.handler.jwt")
