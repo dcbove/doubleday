@@ -39,9 +39,6 @@ jobs:
       - name: Terraform Apply
         working-directory: terraform/environments/dev
         run: terraform apply -auto-approve
-        env:
-          TF_VAR_google_client_id: ${{ secrets.GOOGLE_CLIENT_ID }}
-          TF_VAR_google_client_secret: ${{ secrets.GOOGLE_CLIENT_SECRET }}
 
   plan-prod:
     name: Plan (prod)
@@ -71,9 +68,6 @@ jobs:
         working-directory: terraform/environments/prod
         run: terraform plan -no-color -out=tfplan 2>&1 | tee plan-output.txt
         continue-on-error: true
-        env:
-          TF_VAR_google_client_id: ${{ secrets.GOOGLE_CLIENT_ID }}
-          TF_VAR_google_client_secret: ${{ secrets.GOOGLE_CLIENT_SECRET }}
 
       - name: Post plan to PR
         uses: actions/github-script@v7

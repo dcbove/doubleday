@@ -23,18 +23,6 @@ variable "powertools_layer_arn" {
   type        = string
 }
 
-variable "google_client_id" {
-  description = "Google OAuth client ID for Cognito federation"
-  type        = string
-  sensitive   = true
-}
-
-variable "google_client_secret" {
-  description = "Google OAuth client secret for Cognito federation"
-  type        = string
-  sensitive   = true
-}
-
 variable "cognito_callback_urls" {
   description = "Allowed callback URLs for Cognito client"
   type        = list(string)

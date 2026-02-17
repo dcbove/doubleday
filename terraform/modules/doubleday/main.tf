@@ -1,3 +1,11 @@
+data "aws_secretsmanager_secret_version" "google_oauth" {
+  secret_id = "${var.environment}/doubleday/cognito_identity_provider/google_client_id"
+}
+
+locals {
+  google_oauth = jsondecode(data.aws_secretsmanager_secret_version.google_oauth.secret_string)
+}
+
 module "s3" {
   source      = "../pipeline/s3"
   project     = var.project
@@ -40,8 +48,8 @@ module "cognito" {
   source               = "../cognito"
   project              = var.project
   environment          = var.environment
-  google_client_id     = var.google_client_id
-  google_client_secret = var.google_client_secret
+  google_client_id     = local.google_oauth["google_client_id"]
+  google_client_secret = local.google_oauth["google_client_secret"]
   callback_urls        = var.cognito_callback_urls
   logout_urls          = var.cognito_logout_urls
 }

@@ -16,8 +16,6 @@ module "doubleday" {
   region                = var.region
   athena_results_bucket = var.athena_results_bucket
   powertools_layer_arn  = var.powertools_layer_arn
-  google_client_id      = var.google_client_id
-  google_client_secret  = var.google_client_secret
   cognito_callback_urls = var.cognito_callback_urls
   cognito_logout_urls   = var.cognito_logout_urls
   api_domain_name       = var.api_domain_name
