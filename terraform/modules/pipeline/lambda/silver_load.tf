@@ -91,10 +91,11 @@ resource "aws_lambda_function" "silver_load" {
 
   environment {
     variables = {
-      GLUE_DATABASE                  = var.glue_database
-      ATHENA_OUTPUT_BUCKET           = var.athena_results_bucket
-      POWERTOOLS_METRICS_NAMESPACE   = "Doubleday"
-      POWERTOOLS_SERVICE_NAME        = "silver_load"
+      GLUE_DATABASE                = var.glue_database
+      ATHENA_OUTPUT_BUCKET         = var.athena_results_bucket
+      LAKEHOUSE_BUCKET             = var.lakehouse_bucket_name
+      POWERTOOLS_METRICS_NAMESPACE = "Doubleday"
+      POWERTOOLS_SERVICE_NAME      = "silver_load"
     }
   }
 }

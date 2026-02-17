@@ -42,9 +42,7 @@ class TestLoadTable:
     @pytest.fixture()
     def sql_dir(self, tmp_path):
         """Create minimal gold SQL files for testing."""
-        (tmp_path / "gold_test_delete.sql").write_text(
-            "DELETE FROM gold_test WHERE season = {season}"
-        )
+        (tmp_path / "gold_test_delete.sql").write_text("DELETE FROM gold_test WHERE season = {season}")
         (tmp_path / "gold_test_insert.sql").write_text(
             "INSERT INTO gold_test SELECT * FROM silver WHERE season = {season}"
         )

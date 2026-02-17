@@ -2,6 +2,7 @@
 
 import json
 import os
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -13,11 +14,13 @@ import doubleday
 from doubleday.pipeline.silver_load.pipeline import load_partition
 
 athena = boto3.client("athena")
+s3 = boto3.client("s3")
 logger = Logger()
 metrics = Metrics()
 
 DATABASE = os.environ["GLUE_DATABASE"]
 OUTPUT_BUCKET = os.environ["ATHENA_OUTPUT_BUCKET"]
+LAKEHOUSE_BUCKET = os.environ["LAKEHOUSE_BUCKET"]
 SQL_DIR = Path(doubleday.__file__).parent / "sql"
 
 
@@ -31,16 +34,36 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
     metrics.add_dimension(name="season", value=str(season))
 
-    result = load_partition(
-        athena, DATABASE, OUTPUT_BUCKET, SQL_DIR, season, game_date, batch_id
-    )
+    try:
+        result = load_partition(athena, DATABASE, OUTPUT_BUCKET, SQL_DIR, season, game_date, batch_id)
+    except Exception as exc:
+        failure_record = {
+            "batch_id": batch_id,
+            "season": season,
+            "game_date": game_date,
+            "error_type": type(exc).__name__,
+            "error_message": str(exc),
+            "timestamp": datetime.now(tz=UTC).isoformat(),
+        }
+        s3.put_object(
+            Bucket=LAKEHOUSE_BUCKET,
+            Key=f"failures/silver_load/{batch_id}/{game_date}.json",
+            Body=json.dumps(failure_record),
+        )
+        logger.error(
+            "Silver load failed",
+            extra={
+                "batch_id": batch_id,
+                "game_date": game_date,
+                "season": season,
+                "error": str(exc),
+            },
+        )
+        metrics.add_metric(name="SilverLoadFailed", unit=MetricUnit.Count, value=1)
+        raise
 
-    metrics.add_metric(
-        name="RecordsLoaded", unit=MetricUnit.Count, value=result.records_loaded
-    )
-    metrics.add_metric(
-        name="RecordsInserted", unit=MetricUnit.Count, value=result.records_inserted
-    )
+    metrics.add_metric(name="RecordsLoaded", unit=MetricUnit.Count, value=result.records_loaded)
+    metrics.add_metric(name="RecordsInserted", unit=MetricUnit.Count, value=result.records_inserted)
     metrics.add_metric(name="PartitionsInserted", unit=MetricUnit.Count, value=1)
 
     return {

@@ -33,9 +33,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
     result = load_table(athena, DATABASE, OUTPUT_BUCKET, SQL_DIR, table_name, season)
 
-    metrics.add_metric(
-        name="RecordsInserted", unit=MetricUnit.Count, value=result.records_inserted
-    )
+    metrics.add_metric(name="RecordsInserted", unit=MetricUnit.Count, value=result.records_inserted)
     metrics.add_metric(name="TablesLoaded", unit=MetricUnit.Count, value=1)
 
     return {

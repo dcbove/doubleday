@@ -27,9 +27,7 @@ class TestRunQuery:
         """Query succeeds on the first poll."""
         client = MagicMock()
         client.start_query_execution.return_value = {"QueryExecutionId": "abc-123"}
-        client.get_query_execution.return_value = {
-            "QueryExecution": {"Status": {"State": "SUCCEEDED"}}
-        }
+        client.get_query_execution.return_value = {"QueryExecution": {"Status": {"State": "SUCCEEDED"}}}
 
         result = run_query(client, "SELECT 1", "my_db", "my-bucket")
 
@@ -77,9 +75,7 @@ class TestRunQuery:
         """Cancelled query raises RuntimeError."""
         client = MagicMock()
         client.start_query_execution.return_value = {"QueryExecutionId": "abc-123"}
-        client.get_query_execution.return_value = {
-            "QueryExecution": {"Status": {"State": "CANCELLED"}}
-        }
+        client.get_query_execution.return_value = {"QueryExecution": {"Status": {"State": "CANCELLED"}}}
 
         with pytest.raises(RuntimeError, match="Query CANCELLED: Unknown"):
             run_query(client, "SELECT 1", "my_db", "my-bucket")

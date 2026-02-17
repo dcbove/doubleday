@@ -29,9 +29,7 @@ def run_query(client, sql: str, database: str, output_bucket: str) -> str:
                 return execution_id
 
             if state in ("FAILED", "CANCELLED"):
-                reason = result["QueryExecution"]["Status"].get(
-                    "StateChangeReason", "Unknown"
-                )
+                reason = result["QueryExecution"]["Status"].get("StateChangeReason", "Unknown")
 
                 # Retry only Iceberg commit conflicts
                 if "ICEBERG_COMMIT_ERROR" in reason and attempt < max_attempts:
@@ -58,9 +56,7 @@ def run_query(client, sql: str, database: str, output_bucket: str) -> str:
                         "execution_id": execution_id,
                     },
                 )
-                raise RuntimeError(
-                    f"Query {state}: {reason} " f"(attempt {attempt}/{max_attempts})"
-                )
+                raise RuntimeError(f"Query {state}: {reason} " f"(attempt {attempt}/{max_attempts})")
 
             time.sleep(2)
 
@@ -84,10 +80,7 @@ def get_query_results(client, execution_id: str) -> list[dict[str, str]]:
 
     while True:
         result = client.get_query_results(**kwargs)
-        columns = [
-            col["Name"]
-            for col in result["ResultSet"]["ResultSetMetadata"]["ColumnInfo"]
-        ]
+        columns = [col["Name"] for col in result["ResultSet"]["ResultSetMetadata"]["ColumnInfo"]]
         page_rows = result["ResultSet"]["Rows"]
 
         # Skip header row (first row of first page)

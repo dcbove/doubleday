@@ -56,17 +56,13 @@ class TestObjectExists:
     def test_returns_false_on_404(self):
         """Returns False when head_object raises 404."""
         s3 = _make_s3_mock()
-        s3.head_object.side_effect = ClientError(
-            {"Error": {"Code": "404", "Message": "Not Found"}}, "HeadObject"
-        )
+        s3.head_object.side_effect = ClientError({"Error": {"Code": "404", "Message": "Not Found"}}, "HeadObject")
         assert _object_exists(s3, "bucket", "key") is False
 
     def test_raises_on_other_error(self):
         """Re-raises non-404 ClientError."""
         s3 = _make_s3_mock()
-        s3.head_object.side_effect = ClientError(
-            {"Error": {"Code": "403", "Message": "Forbidden"}}, "HeadObject"
-        )
+        s3.head_object.side_effect = ClientError({"Error": {"Code": "403", "Message": "Forbidden"}}, "HeadObject")
         with pytest.raises(ClientError):
             _object_exists(s3, "bucket", "key")
 
@@ -101,9 +97,7 @@ class TestDownloadPartition:
         mock_urlopen.return_value = mock_resp
 
         s3 = MagicMock()
-        result = download_partition(
-            s3, "bucket", 2024, "2024-03-01", force_download=True
-        )
+        result = download_partition(s3, "bucket", 2024, "2024-03-01", force_download=True)
 
         assert result.skipped is False
         assert result.records_downloaded == 2

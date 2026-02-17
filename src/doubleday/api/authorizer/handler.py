@@ -15,10 +15,7 @@ COGNITO_USER_POOL_ID = os.environ["COGNITO_USER_POOL_ID"]
 COGNITO_REGION = os.environ["COGNITO_REGION"]
 COGNITO_CLIENT_IDS = os.environ["COGNITO_CLIENT_IDS"].split(",")
 
-JWKS_URL = (
-    f"https://cognito-idp.{COGNITO_REGION}.amazonaws.com"
-    f"/{COGNITO_USER_POOL_ID}/.well-known/jwks.json"
-)
+JWKS_URL = f"https://cognito-idp.{COGNITO_REGION}.amazonaws.com" f"/{COGNITO_USER_POOL_ID}/.well-known/jwks.json"
 ISSUER = f"https://cognito-idp.{COGNITO_REGION}.amazonaws.com/{COGNITO_USER_POOL_ID}"
 
 # Module-level cache for JWKS keys (persists across warm Lambda starts)

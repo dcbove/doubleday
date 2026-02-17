@@ -49,18 +49,10 @@ class TestLoadPartition:
     def sql_dir(self, tmp_path):
         """Create minimal SQL template files for testing."""
         templates = {
-            "silver_load_partition_into_staging_table.sql": (
-                "INSERT season={season} game_date='{game_date}'"
-            ),
-            "silver_validate_staging_table.sql": (
-                "SELECT COUNT(*) WHERE season={season}"
-            ),
-            "silver_delete_partition_from_canonical_table.sql": (
-                "DELETE WHERE season={season}"
-            ),
-            "silver_insert_partition_into_canonical_table.sql": (
-                "INSERT INTO canonical WHERE season={season}"
-            ),
+            "silver_load_partition_into_staging_table.sql": ("INSERT season={season} game_date='{game_date}'"),
+            "silver_validate_staging_table.sql": ("SELECT COUNT(*) WHERE season={season}"),
+            "silver_delete_partition_from_canonical_table.sql": ("DELETE WHERE season={season}"),
+            "silver_insert_partition_into_canonical_table.sql": ("INSERT INTO canonical WHERE season={season}"),
         }
         for name, content in templates.items():
             (tmp_path / name).write_text(content)
@@ -75,9 +67,7 @@ class TestLoadPartition:
         mock_count.side_effect = [100, 0, 100]
         client = MagicMock()
 
-        result = load_partition(
-            client, "my_db", "bucket", sql_dir, 2025, "2025-03-27", "batch-abc"
-        )
+        result = load_partition(client, "my_db", "bucket", sql_dir, 2025, "2025-03-27", "batch-abc")
 
         assert isinstance(result, LoadResult)
         assert result.records_loaded == 100
@@ -99,9 +89,7 @@ class TestLoadPartition:
         mock_count.side_effect = [50, 0, 50]
         client = MagicMock()
 
-        load_partition(
-            client, "my_db", "bucket", sql_dir, 2024, "2024-03-01", "batch-xyz"
-        )
+        load_partition(client, "my_db", "bucket", sql_dir, 2024, "2024-03-01", "batch-xyz")
 
         insert_sql = mock_run.call_args_list[0].args[1]
         assert "2024" in insert_sql
@@ -109,9 +97,7 @@ class TestLoadPartition:
 
     @patch("doubleday.pipeline.silver_load.pipeline.get_query_row_count")
     @patch("doubleday.pipeline.silver_load.pipeline.run_query")
-    def test_validation_failure_raises_before_replace(
-        self, mock_run, mock_count, sql_dir
-    ):
+    def test_validation_failure_raises_before_replace(self, mock_run, mock_count, sql_dir):
         """Duplicate keys in staging raises ValueError; replace never runs."""
         mock_run.side_effect = ["exec-1", "exec-2"]
         # load returns 100, validate returns 5 duplicates
@@ -119,9 +105,7 @@ class TestLoadPartition:
         client = MagicMock()
 
         with pytest.raises(ValueError, match="5 duplicate"):
-            load_partition(
-                client, "my_db", "bucket", sql_dir, 2025, "2025-03-27", "batch-abc"
-            )
+            load_partition(client, "my_db", "bucket", sql_dir, 2025, "2025-03-27", "batch-abc")
 
         # Only 2 queries ran — delete/insert never executed
         assert mock_run.call_count == 2
@@ -134,9 +118,7 @@ class TestLoadPartition:
         mock_count.side_effect = [100, 0, 100]
         client = MagicMock()
 
-        result = load_partition(
-            client, "my_db", "bucket", sql_dir, 2025, "2025-03-27", "batch-abc"
-        )
+        result = load_partition(client, "my_db", "bucket", sql_dir, 2025, "2025-03-27", "batch-abc")
 
         assert result.results["load_partition"] == "exec-1"
         assert result.results["validate_staging"] == "exec-2"

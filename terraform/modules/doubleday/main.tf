@@ -42,6 +42,14 @@ module "step_function" {
   bronze_load_function_arn    = module.lambda.bronze_load_function_arn
   validate_input_function_arn = module.lambda.validate_input_function_arn
   clear_staging_function_arn  = module.lambda.clear_staging_function_arn
+  check_failures_function_arn = module.lambda.check_failures_function_arn
+}
+
+module "dashboard" {
+  source      = "../pipeline/dashboard"
+  project     = var.project
+  environment = var.environment
+  region      = var.region
 }
 
 module "cognito" {

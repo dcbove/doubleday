@@ -67,13 +67,9 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     metrics.add_dimension(name="pitcher", value=str(pitcher_id))
     metrics.add_dimension(name="season", value=str(season))
 
-    result = query_pitches(
-        athena, DATABASE, OUTPUT_BUCKET, SQL_DIR, pitcher_id, season, pitch_type
-    )
+    result = query_pitches(athena, DATABASE, OUTPUT_BUCKET, SQL_DIR, pitcher_id, season, pitch_type)
 
-    metrics.add_metric(
-        name="PitchTypesReturned", unit=MetricUnit.Count, value=len(result.pitches)
-    )
+    metrics.add_metric(name="PitchTypesReturned", unit=MetricUnit.Count, value=len(result.pitches))
 
     return {
         "statusCode": 200,

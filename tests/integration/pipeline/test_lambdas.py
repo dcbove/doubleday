@@ -63,14 +63,8 @@ def _invoke(function_name: str, payload: dict[str, Any]) -> dict[str, Any]:
 
 def _clear_test_partition() -> None:
     """Delete the test partition from silver staging and canonical."""
-    _athena_query(
-        f"DELETE FROM silver_pitches_staging "
-        f"WHERE season = {SEASON} AND game_date = DATE '{GAME_DATE}'"
-    )
-    _athena_query(
-        f"DELETE FROM silver_pitches "
-        f"WHERE season = {SEASON} AND game_date = DATE '{GAME_DATE}'"
-    )
+    _athena_query(f"DELETE FROM silver_pitches_staging " f"WHERE season = {SEASON} AND game_date = DATE '{GAME_DATE}'")
+    _athena_query(f"DELETE FROM silver_pitches " f"WHERE season = {SEASON} AND game_date = DATE '{GAME_DATE}'")
 
 
 @pytest.mark.integration

@@ -30,10 +30,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     for game_date in game_dates:
         year = int(game_date.split("-")[0])
         if year != season:
-            raise ValueError(
-                f"game_date {game_date} year ({year}) does not match "
-                f"season ({season})"
-            )
+            raise ValueError(f"game_date {game_date} year ({year}) does not match " f"season ({season})")
 
     batch_id = str(uuid.uuid4())
     logger.info(
