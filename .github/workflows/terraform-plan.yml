@@ -13,8 +13,33 @@ permissions:
   pull-requests: write
 
 jobs:
+  apply-oidc:
+    name: Apply (oidc)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Terraform Init
+        working-directory: terraform/environments/oidc
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: terraform/environments/oidc
+        run: terraform apply -auto-approve
+
   apply-dev:
     name: Apply (dev)
+    needs: apply-oidc
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -42,6 +67,7 @@ jobs:
 
   plan-prod:
     name: Plan (prod)
+    needs: apply-oidc
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
