@@ -3,41 +3,41 @@ SELECT
     pitcher,
     pitch_type,
 
-    -- Normalized horizontal break
+    -- Movement (inches). Horizontal is normalized so "glove-side" is positive.
     avg(
-        CASE
+        12.0 * CASE
             WHEN p_throws = 'L' THEN -pfx_x
             ELSE pfx_x
         END
-    ) AS avg_horz_break,
+    ) AS avg_horz_break_in,
 
-    avg(pfx_z) AS avg_ivb,
+    avg(12.0 * pfx_z) AS avg_vert_break_in,
 
     stddev(
-        CASE
+        12.0 * CASE
             WHEN p_throws = 'L' THEN -pfx_x
             ELSE pfx_x
         END
-    ) AS stddev_horz_break,
+    ) AS stddev_horz_break_in,
 
-    stddev(pfx_z) AS stddev_ivb,
+    stddev(12.0 * pfx_z) AS stddev_vert_break_in,
 
     approx_percentile(
-        CASE
+        12.0 * CASE
             WHEN p_throws = 'L' THEN -pfx_x
             ELSE pfx_x
         END, 0.1
-    ) AS p10_horz_break,
+    ) AS p10_horz_break_in,
 
     approx_percentile(
-        CASE
+        12.0 * CASE
             WHEN p_throws = 'L' THEN -pfx_x
             ELSE pfx_x
         END, 0.9
-    ) AS p90_horz_break,
+    ) AS p90_horz_break_in,
 
-    approx_percentile(pfx_z, 0.1) AS p10_ivb,
-    approx_percentile(pfx_z, 0.9) AS p90_ivb,
+    approx_percentile(12.0 * pfx_z, 0.1) AS p10_vert_break_in,
+    approx_percentile(12.0 * pfx_z, 0.9) AS p90_vert_break_in,
 
     -- Velocity
     avg(release_speed) AS avg_velocity,
@@ -64,10 +64,11 @@ WHERE season = {season}
   AND game_type = 'R'
   AND pfx_x IS NOT NULL
   AND pfx_z IS NOT NULL
+  AND p_throws IS NOT NULL
   AND release_speed IS NOT NULL
   AND release_extension IS NOT NULL
 GROUP BY
     season,
     pitcher,
     pitch_type
-HAVING count(*) >= 20
+HAVING count(*) >= 20;

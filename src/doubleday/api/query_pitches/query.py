@@ -7,14 +7,14 @@ from doubleday.util.athena import get_query_results, run_query
 
 INT_COLUMNS = {"pitcher", "pitch_count", "season"}
 FLOAT_COLUMNS = {
-    "avg_horz_break",
-    "avg_ivb",
-    "stddev_horz_break",
-    "stddev_ivb",
-    "p10_horz_break",
-    "p90_horz_break",
-    "p10_ivb",
-    "p90_ivb",
+    "avg_horz_break_in",
+    "avg_vert_break_in",
+    "stddev_horz_break_in",
+    "stddev_vert_break_in",
+    "p10_horz_break_in",
+    "p90_horz_break_in",
+    "p10_vert_break_in",
+    "p90_vert_break_in",
     "avg_velocity",
     "p10_velocity",
     "p90_velocity",

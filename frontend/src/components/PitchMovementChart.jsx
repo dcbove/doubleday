@@ -27,10 +27,10 @@ export default function PitchMovementChart({
     let minY = Infinity;
     let maxY = -Infinity;
     for (const p of pitches) {
-      minX = Math.min(minX, p.p10_horz_break);
-      maxX = Math.max(maxX, p.p90_horz_break);
-      minY = Math.min(minY, p.p10_ivb);
-      maxY = Math.max(maxY, p.p90_ivb);
+      minX = Math.min(minX, p.p10_horz_break_in);
+      maxX = Math.max(maxX, p.p90_horz_break_in);
+      minY = Math.min(minY, p.p10_vert_break_in);
+      maxY = Math.max(maxY, p.p90_vert_break_in);
     }
     const PAD = 3;
     return {
@@ -198,7 +198,7 @@ export default function PitchMovementChart({
           fill="#374151"
           transform={`rotate(-90, 16, ${MARGIN.top + PLOT_HEIGHT / 2})`}
         >
-          Induced Vertical Break (in.)
+          Vertical Break (in.)
         </text>
 
         {/* Ellipses (p10-p90 spread) */}
@@ -209,14 +209,14 @@ export default function PitchMovementChart({
           return (
             <ellipse
               key={`e-${p.pitch_type}`}
-              cx={scaleX(p.avg_horz_break)}
-              cy={scaleY(p.avg_ivb)}
+              cx={scaleX(p.avg_horz_break_in)}
+              cy={scaleY(p.avg_vert_break_in)}
               rx={
-                Math.abs(scaleX(p.p90_horz_break) - scaleX(p.p10_horz_break)) /
+                Math.abs(scaleX(p.p90_horz_break_in) - scaleX(p.p10_horz_break_in)) /
                 2
               }
               ry={
-                Math.abs(scaleY(p.p10_ivb) - scaleY(p.p90_ivb)) / 2
+                Math.abs(scaleY(p.p10_vert_break_in) - scaleY(p.p90_vert_break_in)) / 2
               }
               fill={color}
               fillOpacity={isHovered ? 0.25 : 0.12}
@@ -236,8 +236,8 @@ export default function PitchMovementChart({
           return (
             <circle
               key={`c-${p.pitch_type}`}
-              cx={scaleX(p.avg_horz_break)}
-              cy={scaleY(p.avg_ivb)}
+              cx={scaleX(p.avg_horz_break_in)}
+              cy={scaleY(p.avg_vert_break_in)}
               r={isHovered ? 11 : 9}
               fill={color}
               stroke="white"
@@ -251,8 +251,8 @@ export default function PitchMovementChart({
         {pitches.map((p) => (
           <circle
             key={`h-${p.pitch_type}`}
-            cx={scaleX(p.avg_horz_break)}
-            cy={scaleY(p.avg_ivb)}
+            cx={scaleX(p.avg_horz_break_in)}
+            cy={scaleY(p.avg_vert_break_in)}
             r={16}
             fill="transparent"
             style={{ cursor: "pointer" }}

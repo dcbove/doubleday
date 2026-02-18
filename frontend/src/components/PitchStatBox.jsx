@@ -74,9 +74,9 @@ export default function PitchStatBox({ pitch }) {
         </h4>
         <StatRow
           label="Horizontal"
-          value={`${fmt(pitch.avg_horz_break)} in.`}
+          value={`${fmt(pitch.avg_horz_break_in)} in.`}
         />
-        <StatRow label="Vert. (IVB)" value={`${fmt(pitch.avg_ivb)} in.`} />
+        <StatRow label="Vert. Break" value={`${fmt(pitch.avg_vert_break_in)} in.`} />
       </div>
 
       <div>
