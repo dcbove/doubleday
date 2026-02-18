@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build the Lambda deployment package (deps + source + SQL).
-# Used by CI workflows before terraform plan/apply.
+# Single source of truth — called by CI workflows and terraform (package.tf).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -8,9 +8,9 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
 rm -rf builds/lambda_deps builds/lambda_package
-mkdir -p builds/lambda_package/doubleday/sql/api
+mkdir -p builds/lambda_package/doubleday/sql/pipeline builds/lambda_package/doubleday/sql/api
 
-pip install PyJWT cryptography \
+pip install PyJWT==2.11.0 cryptography==46.0.5 \
   --target builds/lambda_deps \
   --platform manylinux2014_x86_64 \
   --only-binary=:all: \
@@ -24,5 +24,5 @@ cp -r builds/lambda_deps/* builds/lambda_package/
   cp "$f" "../builds/lambda_package/$f"
 done)
 
-cp sql/pipeline/*.sql builds/lambda_package/doubleday/sql/
+cp sql/pipeline/*.sql builds/lambda_package/doubleday/sql/pipeline/
 cp sql/api/*.sql builds/lambda_package/doubleday/sql/api/
