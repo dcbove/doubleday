@@ -50,6 +50,16 @@ module "step_function" {
   catalog_build_function_arn  = module.lambda.catalog_build_function_arn
 }
 
+module "schedule" {
+  source               = "../pipeline/schedule"
+  project              = var.project
+  environment          = var.environment
+  state_machine_arn    = module.step_function.state_machine_arn
+  lambda_package_path  = data.archive_file.lambda_package.output_path
+  lambda_package_hash  = data.archive_file.lambda_package.output_base64sha256
+  powertools_layer_arn = var.powertools_layer_arn
+}
+
 module "dashboard" {
   source      = "../pipeline/dashboard"
   project     = var.project

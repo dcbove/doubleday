@@ -471,6 +471,20 @@ resource "aws_iam_role_policy" "terraform_managed_resources" {
         ]
         Resource = "*"
       },
+      {
+        Sid    = "Scheduler"
+        Effect = "Allow"
+        Action = [
+          "scheduler:CreateSchedule",
+          "scheduler:DeleteSchedule",
+          "scheduler:GetSchedule",
+          "scheduler:UpdateSchedule",
+          "scheduler:TagResource",
+          "scheduler:UntagResource",
+          "scheduler:ListTagsForResource",
+        ]
+        Resource = "arn:aws:scheduler:${var.region}:${data.aws_caller_identity.current.account_id}:schedule/default/${var.project}-*"
+      },
     ]
   })
 }
