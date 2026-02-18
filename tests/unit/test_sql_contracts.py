@@ -1,57 +1,51 @@
 """SQL contract tests — verify every referenced SQL file exists and no SQL file is orphaned."""
 
+import re
 from pathlib import Path
 
-import pytest
-
-from doubleday.pipeline.catalog_build.pipeline import SQL_FILES as CATALOG_SQL_FILES
 from doubleday.pipeline.gold_load.pipeline import STEPS as GOLD_STEPS
 from doubleday.pipeline.silver_load.pipeline import STEPS as SILVER_STEPS
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 SQL_DIR = PROJECT_ROOT / "sql"
+SRC_DIR = PROJECT_ROOT / "src" / "doubleday"
 
 # Gold table names from the Step Function's SetGoldTables pass state.
-GOLD_TABLES = ["gold_pitches_shape_season"]
+GOLD_TABLES = [
+    "gold_pitches_shape_season",
+    "gold_pitch_type_norm_stats",
+    "gold_repertoire_shape_neighbors",
+]
 
+# Matches "api/foo.sql" or "pipeline/foo.sql" as a single string literal.
+_SQL_REF_PATTERN = re.compile(r"""["']((?:api|pipeline)/[^"']+\.sql)["']""")
 
-def _resolve_gold_sql_files() -> list[str]:
-    """Expand gold step templates with each known gold table name."""
-    files = []
-    for table_name in GOLD_TABLES:
-        for _step_name, sql_template in GOLD_STEPS:
-            files.append(sql_template.format(table_name=table_name))
-    return files
+# Matches Path(...) / "pipeline" / "foo.sql" style references.
+_PATH_JOIN_PATTERN = re.compile(r"""["'](pipeline|api)["']\s*/\s*["']([^"']+\.sql)["']""")
 
 
 def _all_referenced_sql_files() -> set[str]:
-    """Collect every SQL filename referenced by pipeline and API code.
+    """Scan all Python source for SQL file references.
 
-    All references include their subdirectory prefix (e.g.
-    "pipeline/silver_load_partition_into_staging_table.sql" or
-    "api/query_pitches.sql"), matching how they are laid out on disk
-    under sql/ and bundled in the Lambda zip under doubleday/sql/.
+    Finds every string literal matching ``api/*.sql`` or ``pipeline/*.sql``
+    in ``src/doubleday/``. Gold step templates containing ``{table_name}``
+    are expanded with the known gold table names.
     """
     referenced: set[str] = set()
 
-    # Silver load STEPS
-    for _step_name, sql_file in SILVER_STEPS:
-        referenced.add(sql_file)
+    for py_file in SRC_DIR.rglob("*.py"):
+        source = py_file.read_text()
 
-    # Gold load STEPS (resolved with known table names)
-    for sql_file in _resolve_gold_sql_files():
-        referenced.add(sql_file)
+        for match in _SQL_REF_PATTERN.findall(source):
+            if "{table_name}" in match:
+                for table_name in GOLD_TABLES:
+                    referenced.add(match.format(table_name=table_name))
+            else:
+                referenced.add(match)
 
-    # Catalog build SQL files
-    for sql_file in CATALOG_SQL_FILES.values():
-        referenced.add(sql_file)
-    referenced.add("pipeline/catalog_coverage.sql")
-
-    # clear_staging direct reference
-    referenced.add("pipeline/silver_clear_partition_from_staging_table.sql")
-
-    # query_pitches API reference
-    referenced.add("api/query_pitches.sql")
+        # Path / "pipeline" / "foo.sql" style joins
+        for prefix, filename in _PATH_JOIN_PATTERN.findall(source):
+            referenced.add(f"{prefix}/{filename}")
 
     return referenced
 
@@ -86,7 +80,6 @@ class TestSqlContracts:
         path = SQL_DIR / "api" / "query_pitches.sql"
         assert path.exists(), f"query_pitches references SQL file but {path} does not exist"
 
-    @pytest.mark.skip(reason="temporary")
     def test_no_orphaned_pipeline_sql(self) -> None:
         """Every .sql file in sql/pipeline/ must be referenced by code."""
         referenced = _all_referenced_sql_files()

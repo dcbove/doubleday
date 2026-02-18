@@ -168,37 +168,48 @@ resource "aws_sfn_state_machine" "pipeline" {
           }
         }
         ResultPath = null
-        Next       = "SetGoldTables"
+        Next       = "GoldLoadShapeSeason"
       }
 
-      SetGoldTables = {
-        Type   = "Pass"
-        Result = ["gold_pitches_shape_season"]
-        ResultPath = "$.gold_tables"
-        Next       = "GoldLoadMap"
-      }
-
-      GoldLoadMap = {
-        Type       = "Map"
-        InputPath  = "$"
-        ItemsPath  = "$.gold_tables"
-        MaxConcurrency = 1
+      GoldLoadShapeSeason = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::lambda:invoke"
         Parameters = {
-          "table_name.$" = "$$.Map.Item.Value"
-          "season.$"     = "$.season"
+          FunctionName = var.gold_load_function_arn
+          Payload = {
+            "table_name" = "gold_pitches_shape_season"
+            "season.$"   = "$.season"
+          }
         }
-        Iterator = {
-          StartAt = "GoldLoad"
-          States = {
-            GoldLoad = {
-              Type     = "Task"
-              Resource = "arn:aws:states:::lambda:invoke"
-              Parameters = {
-                FunctionName = var.gold_load_function_arn
-                "Payload.$"  = "$"
-              }
-              ResultPath = "$.gold_result"
-              End        = true
+        ResultPath = null
+        Next       = "GoldLoadNormStats"
+      }
+
+      GoldLoadNormStats = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::lambda:invoke"
+        Parameters = {
+          FunctionName = var.gold_load_function_arn
+          Payload = {
+            "table_name" = "gold_pitch_type_norm_stats"
+            "season.$"   = "$.season"
+          }
+        }
+        ResultPath = null
+        Next       = "GoldLoadNeighbors"
+      }
+
+      GoldLoadNeighbors = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::lambda:invoke"
+        Parameters = {
+          FunctionName = var.gold_load_function_arn
+          Payload = {
+            "table_name"    = "gold_repertoire_shape_neighbors"
+            "season.$"      = "$.season"
+            "format_params" = {
+              "lambda" = "0.4"
+              "tau"    = "1"
             }
           }
         }

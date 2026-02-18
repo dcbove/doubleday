@@ -35,16 +35,28 @@ def load_table(
     sql_dir: Path,
     table_name: str,
     season: int,
+    format_params: dict[str, str] | None = None,
 ) -> LoadResult:
     """Run the gold load pipeline for a single table and season.
 
     Executes a DELETE then INSERT, each from its own SQL file.
+
+    Args:
+        client: Athena boto3 client.
+        database: Glue database name.
+        output_bucket: S3 bucket for Athena query results.
+        sql_dir: Directory containing SQL template files.
+        table_name: Gold table name (used to resolve SQL filenames).
+        season: Season year substituted into ``{season}`` placeholders.
+        format_params: Extra key/value pairs forwarded to ``str.format``
+            on each SQL template (e.g. ``{"lambda": "0.4", "tau": "1"}``).
     """
     records_inserted = 0
     results: dict[str, str] = {}
+    extra = format_params or {}
     for step_name, sql_file_template in STEPS:
         sql_file = sql_file_template.format(table_name=table_name)
-        sql = load_sql(sql_dir, sql_file).format(season=season)
+        sql = load_sql(sql_dir, sql_file).format(season=season, **extra)
         logger.info("Running step", extra={"step": step_name, "sql_file": sql_file})
         execution_id = run_query(client, sql, database, output_bucket)
         results[step_name] = execution_id

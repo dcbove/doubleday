@@ -27,11 +27,12 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """Load a single gold table partition for the given season."""
     table_name = event["table_name"]
     season = int(event["season"])
+    format_params = event.get("format_params")
 
     metrics.add_dimension(name="table", value=table_name)
     metrics.add_dimension(name="season", value=str(season))
 
-    result = load_table(athena, DATABASE, OUTPUT_BUCKET, SQL_DIR, table_name, season)
+    result = load_table(athena, DATABASE, OUTPUT_BUCKET, SQL_DIR, table_name, season, format_params)
 
     metrics.add_metric(name="RecordsInserted", unit=MetricUnit.Count, value=result.records_inserted)
     metrics.add_metric(name="TablesLoaded", unit=MetricUnit.Count, value=1)
