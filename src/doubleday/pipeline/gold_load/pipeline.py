@@ -10,8 +10,8 @@ from doubleday.util.athena import get_query_row_count, run_query
 logger = Logger(child=True)
 
 STEPS = [
-    ("delete_partition", "{table_name}_delete.sql"),
-    ("insert_partition", "{table_name}_insert.sql"),
+    ("delete_partition", "pipeline/{table_name}_delete.sql"),
+    ("insert_partition", "pipeline/{table_name}_insert.sql"),
 ]
 
 

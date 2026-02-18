@@ -130,7 +130,13 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
         principal_id = claims.get("sub", "unknown")
         logger.info("Auth allowed", extra={"principal": principal_id})
-        return _generate_policy(principal_id, "Allow", method_arn)
+
+        # Wildcard the resource so the cached policy covers all API methods.
+        # method_arn format: arn:aws:execute-api:{region}:{account}:{api}/{stage}/{method}/{resource}
+        arn_parts = method_arn.split("/")
+        wildcard_arn = arn_parts[0] + "/" + arn_parts[1] + "/*"
+
+        return _generate_policy(principal_id, "Allow", wildcard_arn)
     except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, KeyError):
         logger.warning("Auth denied — invalid token")
         return _generate_policy("anonymous", "Deny", method_arn)

@@ -19,7 +19,7 @@ When adding permissions for a new AWS resource type, update `modules/oidc/main.t
 A single shared zip (`builds/lambda_package.zip`) is built by the composition module and passed as `lambda_package_path` / `lambda_package_hash` variables to both `module.lambda` (pipeline) and `module.api`. The zip contains:
 
 - All Python source (`src/doubleday/**/*.py`)
-- Pipeline SQL templates (`sql/pipeline/*.sql` → `doubleday/sql/`)
+- Pipeline SQL templates (`sql/pipeline/*.sql` → `doubleday/sql/pipeline/`)
 - API SQL templates (`sql/api/*.sql` → `doubleday/sql/api/`)
 - Pip dependencies (PyJWT, cryptography) built for `manylinux2014_x86_64`
 

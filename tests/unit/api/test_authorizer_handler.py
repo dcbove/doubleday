@@ -25,6 +25,7 @@ os.environ.setdefault("COGNITO_CLIENT_IDS", "test-client-id")
 from doubleday.api.authorizer.handler import handler  # noqa: E402
 
 METHOD_ARN = "arn:aws:execute-api:us-east-1:123456:api/dev/GET/pitchers"
+WILDCARD_ARN = "arn:aws:execute-api:us-east-1:123456:api/dev/*"
 
 
 @pytest.fixture()
@@ -69,7 +70,7 @@ class TestAuthorizerHandler:
         assert result["principalId"] == "user-123"
         statement = result["policyDocument"]["Statement"][0]
         assert statement["Effect"] == "Allow"
-        assert statement["Resource"] == METHOD_ARN
+        assert statement["Resource"] == WILDCARD_ARN
 
     @patch("doubleday.api.authorizer.handler._get_public_key")
     @patch("doubleday.api.authorizer.handler.jwt")
@@ -94,6 +95,7 @@ class TestAuthorizerHandler:
         assert result["principalId"] == "user-123"
         statement = result["policyDocument"]["Statement"][0]
         assert statement["Effect"] == "Allow"
+        assert statement["Resource"] == WILDCARD_ARN
 
     @patch("doubleday.api.authorizer.handler._get_public_key")
     @patch("doubleday.api.authorizer.handler.jwt")

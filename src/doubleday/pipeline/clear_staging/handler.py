@@ -27,7 +27,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """Delete all staging rows for the given batch_id."""
     batch_id = event["batch_id"]
 
-    sql_path = SQL_DIR / "silver_clear_partition_from_staging_table.sql"
+    sql_path = SQL_DIR / "pipeline" / "silver_clear_partition_from_staging_table.sql"
     sql = sql_path.read_text().format(batch_id=batch_id)
 
     logger.info("Clearing staging", extra={"batch_id": batch_id})

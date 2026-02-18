@@ -48,6 +48,8 @@ class TestLoadPartition:
     @pytest.fixture()
     def sql_dir(self, tmp_path):
         """Create minimal SQL template files for testing."""
+        pipeline_dir = tmp_path / "pipeline"
+        pipeline_dir.mkdir()
         templates = {
             "silver_load_partition_into_staging_table.sql": ("INSERT season={season} game_date='{game_date}'"),
             "silver_validate_staging_table.sql": ("SELECT COUNT(*) WHERE season={season}"),
@@ -55,7 +57,7 @@ class TestLoadPartition:
             "silver_insert_partition_into_canonical_table.sql": ("INSERT INTO canonical WHERE season={season}"),
         }
         for name, content in templates.items():
-            (tmp_path / name).write_text(content)
+            (pipeline_dir / name).write_text(content)
         return tmp_path
 
     @patch("doubleday.pipeline.silver_load.pipeline.get_query_row_count")

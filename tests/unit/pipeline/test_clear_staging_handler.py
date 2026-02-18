@@ -55,7 +55,9 @@ class TestClearStagingHandler:
         """Handler formats SQL with batch_id and calls run_query."""
         mock_sql_file = MagicMock()
         mock_sql_file.read_text.return_value = "DELETE FROM silver_pitches_staging" " WHERE batch_id = '{batch_id}'\n"
-        mock_sql_dir.__truediv__ = MagicMock(return_value=mock_sql_file)
+        mock_pipeline_dir = MagicMock()
+        mock_pipeline_dir.__truediv__ = MagicMock(return_value=mock_sql_file)
+        mock_sql_dir.__truediv__ = MagicMock(return_value=mock_pipeline_dir)
         mock_run.return_value = "exec-123"
 
         result = handler({"batch_id": "abc-def-123"}, lambda_context)
@@ -78,12 +80,15 @@ class TestClearStagingHandler:
     @patch("doubleday.pipeline.clear_staging.handler.DATABASE", "test_db")
     @patch("doubleday.pipeline.clear_staging.handler.OUTPUT_BUCKET", "test-bucket")
     def test_reads_correct_sql_file(self, mock_athena, mock_metrics, mock_run, mock_sql_dir, lambda_context):
-        """Handler reads the clear partition SQL template."""
+        """Handler reads the clear partition SQL template via pipeline subdirectory."""
         mock_sql_file = MagicMock()
         mock_sql_file.read_text.return_value = "DELETE WHERE batch_id = '{batch_id}'"
-        mock_sql_dir.__truediv__ = MagicMock(return_value=mock_sql_file)
+        mock_pipeline_dir = MagicMock()
+        mock_pipeline_dir.__truediv__ = MagicMock(return_value=mock_sql_file)
+        mock_sql_dir.__truediv__ = MagicMock(return_value=mock_pipeline_dir)
         mock_run.return_value = "exec-456"
 
         handler({"batch_id": "test-batch"}, lambda_context)
 
-        mock_sql_dir.__truediv__.assert_called_once_with("silver_clear_partition_from_staging_table.sql")
+        mock_sql_dir.__truediv__.assert_called_once_with("pipeline")
+        mock_pipeline_dir.__truediv__.assert_called_once_with("silver_clear_partition_from_staging_table.sql")

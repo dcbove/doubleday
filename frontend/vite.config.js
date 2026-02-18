@@ -25,6 +25,10 @@ export default defineConfig(({ mode }) => {
             "x-api-key": env.VITE_API_KEY || "",
           },
         },
+        "/static": {
+          target: "https://doubleday-dev.appleforge.com",
+          changeOrigin: true,
+        },
       },
     },
   };

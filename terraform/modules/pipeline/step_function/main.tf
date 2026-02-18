@@ -32,6 +32,7 @@ resource "aws_iam_role_policy" "pipeline" {
           var.gold_load_function_arn,
           var.clear_staging_function_arn,
           var.check_failures_function_arn,
+          var.catalog_build_function_arn,
         ]
       },
       {
@@ -68,7 +69,7 @@ resource "aws_sfn_state_machine" "pipeline" {
   }
 
   definition = jsonencode({
-    Comment = "Doubleday ETL pipeline: validate → bronze → silver → gold"
+    Comment = "Doubleday ETL pipeline: validate → bronze → silver → gold → catalog"
     StartAt = "ValidateInput"
     States = {
       ValidateInput = {
@@ -197,6 +198,41 @@ resource "aws_sfn_state_machine" "pipeline" {
                 "Payload.$"  = "$"
               }
               ResultPath = "$.gold_result"
+              End        = true
+            }
+          }
+        }
+        ResultPath = null
+        Next       = "SetCatalogRoles"
+      }
+
+      SetCatalogRoles = {
+        Type       = "Pass"
+        Result     = ["pitchers", "batters"]
+        ResultPath = "$.catalog_roles"
+        Next       = "CatalogBuildMap"
+      }
+
+      CatalogBuildMap = {
+        Type           = "Map"
+        InputPath      = "$"
+        ItemsPath      = "$.catalog_roles"
+        MaxConcurrency = 2
+        Parameters = {
+          "season.$" = "$.season"
+          "role.$"   = "$$.Map.Item.Value"
+        }
+        Iterator = {
+          StartAt = "CatalogBuild"
+          States = {
+            CatalogBuild = {
+              Type     = "Task"
+              Resource = "arn:aws:states:::lambda:invoke"
+              Parameters = {
+                FunctionName = var.catalog_build_function_arn
+                "Payload.$"  = "$"
+              }
+              ResultPath = "$.catalog_result"
               End        = true
             }
           }

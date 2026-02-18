@@ -68,6 +68,16 @@ variable "hosted_zone_name" {
   type        = string
 }
 
+variable "frontend_bucket_name" {
+  description = "Name of the frontend S3 bucket (for catalog manifest reads)"
+  type        = string
+}
+
+variable "frontend_bucket_arn" {
+  description = "ARN of the frontend S3 bucket (for catalog manifest IAM policy)"
+  type        = string
+}
+
 variable "rate_limit" {
   description = "Steady-state request rate limit per second"
   type        = number

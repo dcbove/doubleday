@@ -14,10 +14,10 @@ from doubleday.util.athena import get_query_row_count, run_query
 logger = Logger(child=True)
 
 STEPS = [
-    ("load_partition", "silver_load_partition_into_staging_table.sql"),
-    ("validate_staging", "silver_validate_staging_table.sql"),
-    ("delete_canonical", "silver_delete_partition_from_canonical_table.sql"),
-    ("insert_canonical", "silver_insert_partition_into_canonical_table.sql"),
+    ("load_partition", "pipeline/silver_load_partition_into_staging_table.sql"),
+    ("validate_staging", "pipeline/silver_validate_staging_table.sql"),
+    ("delete_canonical", "pipeline/silver_delete_partition_from_canonical_table.sql"),
+    ("insert_canonical", "pipeline/silver_insert_partition_into_canonical_table.sql"),
 ]
 
 
