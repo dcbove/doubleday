@@ -3,16 +3,16 @@ import { Link } from "react-router";
 /**
  * Single player result row in the typeahead dropdown.
  *
- * @param {{ player: object, teams: object }} props
+ * When `onSelect` is provided, renders a button that calls `onSelect(player)`
+ * instead of navigating via Link. Same visual layout either way.
+ *
+ * @param {{ player: object, teams: object, onSelect?: function }} props
  */
-export default function PlayerResult({ player, teams }) {
+export default function PlayerResult({ player, teams, onSelect }) {
   const team = teams[String(player.team_season_id)] || {};
 
-  return (
-    <Link
-      to={`/pitchers/${player.id}`}
-      className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50"
-    >
+  const inner = (
+    <>
       <img
         src={player.headshot_url}
         alt=""
@@ -31,6 +31,27 @@ export default function PlayerResult({ player, teams }) {
           {player.bats}/{player.throws}
         </p>
       </div>
+    </>
+  );
+
+  if (onSelect) {
+    return (
+      <button
+        type="button"
+        onClick={() => onSelect(player)}
+        className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-gray-50"
+      >
+        {inner}
+      </button>
+    );
+  }
+
+  return (
+    <Link
+      to={`/pitchers/${player.id}`}
+      className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50"
+    >
+      {inner}
     </Link>
   );
 }

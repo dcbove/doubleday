@@ -15,7 +15,7 @@ import PitchStatsTable from "../components/PitchStatsTable";
 export default function PitcherDetail() {
   const { id } = useParams();
   const pitcherId = Number(id);
-  const [season, setSeason] = useState(2024);
+  const [season, setSeason] = useState(2025);
   const [hoveredPitchType, setHoveredPitchType] = useState(null);
 
   const { catalog, loading: catalogLoading } = useCatalog("pitchers", season);
@@ -84,8 +84,8 @@ export default function PitcherDetail() {
         </header>
       )}
 
-      {/* Season toggle */}
-      <div className="mt-2 flex gap-2 sm:mt-4">
+      {/* Season toggle + Compare button */}
+      <div className="mt-2 flex items-center gap-2 sm:mt-4">
         {[2024, 2025].map((s) => (
           <button
             key={s}
@@ -99,6 +99,13 @@ export default function PitcherDetail() {
             {s}
           </button>
         ))}
+        <Link
+          to={`/pitchers/${id}/compare`}
+          state={{ season }}
+          className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 sm:px-4 sm:py-2 sm:text-sm"
+        >
+          Compare
+        </Link>
       </div>
 
       {/* Pitch data */}
