@@ -98,7 +98,7 @@ jobs:
         run: npm run build
 
       - name: Deploy frontend to S3
-        run: aws s3 sync frontend/dist "s3://${{ steps.tf.outputs.bucket }}" --delete
+        run: aws s3 sync frontend/dist "s3://${{ steps.tf.outputs.bucket }}" --delete --exclude "static/*"
 
       - name: Invalidate CloudFront cache
         run: aws cloudfront create-invalidation --distribution-id "${{ steps.tf.outputs.distribution_id }}" --paths "/*"

@@ -8,9 +8,13 @@ import PlayerResult from "./PlayerResult";
  * Renders a search input and a filtered list of matching players from the
  * catalog. Results appear after the user types at least 2 characters.
  *
- * @param {{ catalog: object|null, loading: boolean, error: string|null, search: function }} props
+ * When `onSelect` is provided, each result becomes a button that calls
+ * `onSelect(player)` instead of navigating, and the query is cleared after
+ * selection.
+ *
+ * @param {{ catalog: object|null, loading: boolean, error: string|null, search: function, onSelect?: function }} props
  */
-export default function PlayerSearch({ catalog, loading, error, search }) {
+export default function PlayerSearch({ catalog, loading, error, search, onSelect }) {
   const [query, setQuery] = useState("");
 
   const results = useMemo(() => {
@@ -42,7 +46,11 @@ export default function PlayerSearch({ catalog, loading, error, search }) {
             <ul className="divide-y divide-gray-100">
               {results.map((player) => (
                 <li key={player.id}>
-                  <PlayerResult player={player} teams={catalog.teams} />
+                  <PlayerResult
+                    player={player}
+                    teams={catalog.teams}
+                    onSelect={onSelect ? (p) => { onSelect(p); setQuery(""); } : undefined}
+                  />
                 </li>
               ))}
             </ul>
