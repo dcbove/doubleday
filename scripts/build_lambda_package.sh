@@ -10,7 +10,7 @@ cd "$PROJECT_ROOT"
 rm -rf builds/lambda_deps builds/lambda_package
 mkdir -p builds/lambda_package/doubleday/sql/pipeline builds/lambda_package/doubleday/sql/api
 
-pip install PyJWT cryptography \
+pip install PyJWT==2.11.0 cryptography==46.0.5 \
   --target builds/lambda_deps \
   --platform manylinux2014_x86_64 \
   --only-binary=:all: \
