@@ -49,6 +49,8 @@ sql/
     silver_pitches.sql                                # Iceberg DDL (canonical)
     silver_pitches_staging.sql                        # Iceberg DDL (staging)
     gold_pitches_shape_season.sql                     # Iceberg DDL (pitch shape aggs)
+    gold_pitch_type_norm_stats.sql                    # Iceberg DDL (pitch type norms)
+    gold_repertoire_shape_neighbors.sql               # Iceberg DDL (similarity neighbors)
   pipeline/
     silver_load_partition_into_staging_table.sql       # Bronze -> staging INSERT
     silver_validate_staging_table.sql                  # Duplicate key check on staging
@@ -57,6 +59,10 @@ sql/
     silver_clear_partition_from_staging_table.sql      # Bulk delete staging by batch_id
     gold_pitches_shape_season_delete.sql              # Delete gold partition
     gold_pitches_shape_season_insert.sql              # INSERT from silver
+    gold_pitch_type_norm_stats_delete.sql             # Delete norm stats
+    gold_pitch_type_norm_stats_insert.sql             # INSERT from shape season
+    gold_repertoire_shape_neighbors_delete.sql        # Delete neighbors
+    gold_repertoire_shape_neighbors_insert.sql        # INSERT from norm stats + shape season
   api/
     query_pitches.sql                                 # SELECT pitcher pitch-shape stats
 terraform/
@@ -272,6 +278,8 @@ The gold layer contains precomputed analytical tables built from silver. Each ta
 ### Tables
 
 - **`gold_pitches_shape_season`** — per-pitcher, per-pitch-type season aggregations including movement, velocity, spin, and usage metrics. Regular season games only (`game_type = 'R'`). Minimum 20-pitch threshold per pitch type.
+- **`gold_pitch_type_norm_stats`** — per-pitch-type normalization statistics (mean/stddev for velocity and movement) across all history. Used to z-score features for similarity calculations. Depends on `gold_pitches_shape_season`.
+- **`gold_repertoire_shape_neighbors`** — top-N cross-season repertoire shape similarity neighbors per pitcher-season profile. Depends on `gold_pitch_type_norm_stats`.
 
 ### Table creation
 
@@ -279,18 +287,35 @@ Tables are created via Athena DDL, triggered by `terraform apply`:
 
 ```
 sql/ddl/gold_pitches_shape_season.sql
+sql/ddl/gold_pitch_type_norm_stats.sql
+sql/ddl/gold_repertoire_shape_neighbors.sql
 ```
 
 ### Gold load pipeline
 
-The `gold_load` Lambda loads a single gold table for a given season. It reads a pair of SQL files — a DELETE (clear the season partition) and an INSERT (rebuild from silver) — and executes each in order.
+The `gold_load` Lambda loads a single gold table for a given season. It reads a pair of SQL files — a DELETE (clear the season partition) and an INSERT (rebuild from silver) — and executes each in order. Tables that need additional SQL template parameters (beyond `season`) receive them via `format_params` in the event payload.
 
 ### Invoking the gold_load Lambda
 
 ```bash
+# gold_pitches_shape_season
 aws lambda invoke \
   --function-name doubleday-dev-gold-load \
   --payload '{"table_name": "gold_pitches_shape_season", "season": 2024}' \
+  --cli-binary-format raw-in-base64-out \
+  /dev/stdout
+
+# gold_pitch_type_norm_stats (depends on gold_pitches_shape_season)
+aws lambda invoke \
+  --function-name doubleday-dev-gold-load \
+  --payload '{"table_name": "gold_pitch_type_norm_stats", "season": 2024}' \
+  --cli-binary-format raw-in-base64-out \
+  /dev/stdout
+
+# gold_repertoire_shape_neighbors (depends on gold_pitch_type_norm_stats)
+aws lambda invoke \
+  --function-name doubleday-dev-gold-load \
+  --payload '{"table_name": "gold_repertoire_shape_neighbors", "season": 2024, "format_params": {"lambda": "0.4", "tau": "1"}}' \
   --cli-binary-format raw-in-base64-out \
   /dev/stdout
 ```
@@ -299,7 +324,9 @@ aws lambda invoke \
 
 ```
 s3://doubleday-<env>-lakehouse/gold/
-└── gold_pitches_shape_season/    # Iceberg data + metadata
+├── gold_pitches_shape_season/           # Iceberg data + metadata
+├── gold_pitch_type_norm_stats/          # Iceberg data + metadata
+└── gold_repertoire_shape_neighbors/     # Iceberg data + metadata
 ```
 
 ## Player Catalogs
@@ -348,10 +375,12 @@ A Standard Step Function orchestrates the full ETL pipeline:
 2. **BronzeLoadMap** (concurrency 5) — invoke `bronze_load` for each date (download from Baseball Savant to S3)
 3. **SilverLoadMap** (concurrency 5) — invoke `silver_load` for each date, passing `batch_id`. Individual failures are caught and recorded to S3 (`failures/silver_load/{batch_id}/{game_date}.json`); the map continues processing remaining dates.
 4. **ClearStaging** — invoke `clear_staging` to bulk-delete all staging rows for this `batch_id`
-5. **SetGoldTables** — inject hardcoded gold table list
-6. **GoldLoadMap** (concurrency 1) — invoke `gold_load` for each table with the season
-7. **CheckFailures** — invoke `check_failures` to scan S3 for failure records from this `batch_id`
-8. **HasFailures** — if any silver loads failed, the execution ends with `SilverLoadPartialFailure`; otherwise succeeds
+5. **GoldLoadShapeSeason** — invoke `gold_load` for `gold_pitches_shape_season`
+6. **GoldLoadNormStats** — invoke `gold_load` for `gold_pitch_type_norm_stats` (depends on shape season)
+7. **GoldLoadNeighbors** — invoke `gold_load` for `gold_repertoire_shape_neighbors` (depends on norm stats)
+8. **CatalogBuildMap** (concurrency 2) — invoke `catalog_build` for each role (pitchers, batters)
+9. **CheckFailures** — invoke `check_failures` to scan S3 for failure records from this `batch_id`
+10. **HasFailures** — if any silver loads failed, the execution ends with `SilverLoadPartialFailure`; otherwise succeeds
 
 ### Invoking the Step Function
 

@@ -1,0 +1,2 @@
+-- gold_repertoire_shape_neighbors_delete.sql
+DELETE FROM gold_repertoire_shape_neighbors;

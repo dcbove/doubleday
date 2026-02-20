@@ -19,9 +19,14 @@ export default function PitcherCompare() {
   const location = useLocation();
   const initialSeason = location.state?.season || 2025;
 
+  const initialPitcherBId = location.state?.pitcherBId
+    ? Number(location.state.pitcherBId)
+    : null;
+  const initialSeasonB = location.state?.seasonB || initialSeason;
+
   const [seasonA, setSeasonA] = useState(initialSeason);
-  const [seasonB, setSeasonB] = useState(initialSeason);
-  const [pitcherBId, setPitcherBId] = useState(null);
+  const [seasonB, setSeasonB] = useState(initialSeasonB);
+  const [pitcherBId, setPitcherBId] = useState(initialPitcherBId);
   const [pitcherBPlayer, setPitcherBPlayer] = useState(null);
   const [hoveredPitchType, setHoveredPitchType] = useState(null);
 
@@ -56,9 +61,14 @@ export default function PitcherCompare() {
   }, [catalogA, playerA]);
 
   const playerB = useMemo(() => {
-    if (!pitcherBPlayer) return null;
-    if (!catalogB) return pitcherBPlayer;
-    return catalogB.players.find((p) => p.id === pitcherBId) || pitcherBPlayer;
+    if (pitcherBPlayer) {
+      if (!catalogB) return pitcherBPlayer;
+      return catalogB.players.find((p) => p.id === pitcherBId) || pitcherBPlayer;
+    }
+    if (pitcherBId && catalogB) {
+      return catalogB.players.find((p) => p.id === pitcherBId) || null;
+    }
+    return null;
   }, [catalogB, pitcherBId, pitcherBPlayer]);
 
   const teamB = useMemo(() => {

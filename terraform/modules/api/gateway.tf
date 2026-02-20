@@ -65,6 +65,11 @@ resource "aws_api_gateway_deployment" "main" {
       aws_api_gateway_integration.get_catalog,
       aws_api_gateway_method.options_catalog,
       aws_api_gateway_integration.options_catalog,
+      aws_api_gateway_resource.neighbors,
+      aws_api_gateway_method.get_neighbors,
+      aws_api_gateway_integration.get_neighbors,
+      aws_api_gateway_method.options_neighbors,
+      aws_api_gateway_integration.options_neighbors,
       aws_api_gateway_authorizer.cognito,
     ]))
   }
