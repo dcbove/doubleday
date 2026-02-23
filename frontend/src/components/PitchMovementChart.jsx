@@ -28,6 +28,7 @@ export default function PitchMovementChart({
   pitches,
   hoveredPitchType,
   onHover,
+  fill,
 }) {
   const { xMin, xMax, yMin, yMax } = useMemo(() => {
     let minX = Infinity;
@@ -78,7 +79,10 @@ export default function PitchMovementChart({
   }
 
   return (
-    <View style={{ aspectRatio: SVG_WIDTH / SVG_HEIGHT }} className="w-full max-w-[250px] sm:max-w-[400px]">
+    <View
+      style={fill ? { flex: 1 } : { aspectRatio: SVG_WIDTH / SVG_HEIGHT }}
+      className={fill ? "w-full" : "w-full max-w-[250px] sm:max-w-[400px]"}
+    >
       <Svg
         viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
         width="100%"

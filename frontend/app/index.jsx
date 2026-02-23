@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { View, Text, Pressable, ActivityIndicator } from "react-native";
 import { router } from "expo-router";
 import useAuth from "../src/auth/useAuth";
@@ -5,17 +6,18 @@ import useAuth from "../src/auth/useAuth";
 export default function Landing() {
   const { user, loading, login } = useAuth();
 
-  if (loading) {
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace("/dashboard");
+    }
+  }, [loading, user]);
+
+  if (loading || user) {
     return (
       <View className="flex-1 items-center justify-center">
         <ActivityIndicator size="large" color="#6b7280" />
       </View>
     );
-  }
-
-  if (user) {
-    router.replace("/dashboard");
-    return null;
   }
 
   return (

@@ -13,6 +13,7 @@ export default function SimilarPitchersList({
   catalog,
   sourcePitcherId,
   sourceSeason,
+  maxHeight,
 }) {
   const rows = useMemo(() => {
     if (!neighbors || !catalog) return [];
@@ -30,11 +31,8 @@ export default function SimilarPitchersList({
   if (rows.length === 0) return null;
 
   return (
-    <View
-      className="rounded-lg border border-gray-200"
-      style={{ overflow: "hidden", flex: 1 }}
-    >
-      <ScrollView>
+    <View className="rounded-lg border border-gray-200" style={{ overflow: "hidden", flex: maxHeight ? undefined : 1 }}>
+      <ScrollView style={maxHeight ? { maxHeight } : undefined}>
         {rows.map((row, idx) => (
           <View key={`${row.neighbor_pitcher}-${row.neighbor_season}`}>
             {idx > 0 && <View className="border-b border-gray-100" />}

@@ -1,5 +1,5 @@
 .PHONY: lint format typecheck test test-integration check-all run install install-hooks clean \
-	frontend-install frontend-build frontend-dev frontend-deploy frontend-clean
+	frontend-install frontend-build frontend-dev frontend-ios frontend-deploy frontend-clean
 
 # Linting and formatting
 lint:
@@ -39,6 +39,9 @@ frontend-build: frontend-install
 
 frontend-dev:
 	cd frontend && npm run dev
+
+frontend-ios:
+	cd frontend && npx expo run:ios
 
 frontend-deploy: frontend-install
 	$(eval ENV ?= dev)
@@ -84,6 +87,7 @@ help:
 	@echo "  make frontend-install   - Install frontend dependencies"
 	@echo "  make frontend-build     - Build frontend for production"
 	@echo "  make frontend-deploy    - Build and deploy frontend (ENV=dev|prod)"
-	@echo "  make frontend-dev       - Start frontend dev server"
+	@echo "  make frontend-dev       - Start frontend web dev server"
+	@echo "  make frontend-ios       - Build and run on iOS simulator"
 	@echo "  make clean              - Clean up all cache files and build artifacts"
 	@echo "  make help               - Show this help"

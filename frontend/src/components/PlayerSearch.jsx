@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { View, Text, FlatList } from "react-native";
+import { View, Text } from "react-native";
 import SearchInput from "./SearchInput";
 import PlayerResult from "./PlayerResult";
 
@@ -43,28 +43,25 @@ export default function PlayerSearch({ catalog, loading, error, search, onSelect
               No players found.
             </Text>
           ) : (
-            <FlatList
-              data={results}
-              keyExtractor={(item) => String(item.id)}
-              renderItem={({ item }) => (
-                <PlayerResult
-                  player={item}
-                  teams={catalog.teams}
-                  onSelect={
-                    onSelect
-                      ? (p) => {
-                          onSelect(p);
-                          setQuery("");
-                        }
-                      : undefined
-                  }
-                />
-              )}
-              ItemSeparatorComponent={() => (
-                <View className="border-b border-gray-100" />
-              )}
-              keyboardShouldPersistTaps="handled"
-            />
+            <View>
+              {results.map((item, idx) => (
+                <View key={String(item.id)}>
+                  {idx > 0 && <View className="border-b border-gray-100" />}
+                  <PlayerResult
+                    player={item}
+                    teams={catalog.teams}
+                    onSelect={
+                      onSelect
+                        ? (p) => {
+                            onSelect(p);
+                            setQuery("");
+                          }
+                        : undefined
+                    }
+                  />
+                </View>
+              ))}
+            </View>
           )}
         </View>
       )}
