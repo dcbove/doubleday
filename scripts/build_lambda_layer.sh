@@ -20,3 +20,7 @@ pip install PyJWT==2.11.0 cryptography==46.0.5 \
 
 cd builds/lambda_layer
 zip -r -q ../lambda_layer.zip python/
+
+cd ..
+echo "Lambda layer zip directory: $(pwd)"
+ls -la lambda_layer.zip
