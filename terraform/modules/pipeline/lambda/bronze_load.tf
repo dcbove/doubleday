@@ -64,7 +64,7 @@ resource "aws_lambda_function" "bronze_load" {
   memory_size      = 128
   filename         = var.lambda_package_path
   source_code_hash = var.lambda_package_hash
-  layers           = [var.powertools_layer_arn]
+  layers           = [var.powertools_layer_arn, var.deps_layer_arn]
 
   environment {
     variables = {
