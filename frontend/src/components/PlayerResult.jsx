@@ -1,9 +1,10 @@
-import { Link } from "react-router";
+import { View, Text, Pressable, Image } from "react-native";
+import { Link } from "expo-router";
 
 /**
  * Single player result row in the typeahead dropdown.
  *
- * When `onSelect` is provided, renders a button that calls `onSelect(player)`
+ * When `onSelect` is provided, renders a Pressable that calls `onSelect(player)`
  * instead of navigating via Link. Same visual layout either way.
  *
  * @param {{ player: object, teams: object, onSelect?: function }} props
@@ -12,46 +13,38 @@ export default function PlayerResult({ player, teams, onSelect }) {
   const team = teams[String(player.team_season_id)] || {};
 
   const inner = (
-    <>
-      <img
-        src={player.headshot_url}
-        alt=""
-        className="h-10 w-10 rounded-full bg-gray-100 object-cover"
-        loading="lazy"
-        onError={(e) => {
-          e.target.style.display = "none";
-        }}
+    <View className="flex-row items-center gap-3 px-3 py-2">
+      <Image
+        source={{ uri: player.headshot_url }}
+        className="h-10 w-10 rounded-full bg-gray-100"
+        resizeMode="cover"
       />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-gray-900">
+      <View className="min-w-0 flex-1">
+        <Text className="text-sm font-medium text-gray-900" numberOfLines={1}>
           {player.first} {player.last}
-        </p>
-        <p className="text-xs text-gray-500">
-          {team.abbr || "\u2014"} &middot; {player.pos || "\u2014"} &middot;{" "}
+        </Text>
+        <Text className="text-xs text-gray-500">
+          {team.abbr || "\u2014"} · {player.pos || "\u2014"} ·{" "}
           {player.bats}/{player.throws}
-        </p>
-      </div>
-    </>
+        </Text>
+      </View>
+    </View>
   );
 
   if (onSelect) {
     return (
-      <button
-        type="button"
-        onClick={() => onSelect(player)}
-        className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-gray-50"
+      <Pressable
+        onPress={() => onSelect(player)}
+        className="active:bg-gray-50"
       >
         {inner}
-      </button>
+      </Pressable>
     );
   }
 
   return (
-    <Link
-      to={`/pitchers/${player.id}`}
-      className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50"
-    >
-      {inner}
+    <Link href={`/pitchers/${player.id}`} asChild>
+      <Pressable className="active:bg-gray-50">{inner}</Pressable>
     </Link>
   );
 }

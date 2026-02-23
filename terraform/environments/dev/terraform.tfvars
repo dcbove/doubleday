@@ -6,5 +6,5 @@ powertools_layer_arn  = "arn:aws:lambda:us-east-1:017000801446:layer:AWSLambdaPo
 api_domain_name       = "api.doubleday-dev.appleforge.com"
 frontend_domain_name  = "doubleday-dev.appleforge.com"
 hosted_zone_name      = "appleforge.com"
-cognito_callback_urls = ["http://localhost:5173/callback", "https://doubleday-dev.appleforge.com/callback"]
-cognito_logout_urls   = ["http://localhost:5173", "https://doubleday-dev.appleforge.com"]
+cognito_callback_urls = ["http://localhost:8081/callback", "https://doubleday-dev.appleforge.com/callback", "doubleday://callback"]
+cognito_logout_urls   = ["http://localhost:8081", "https://doubleday-dev.appleforge.com", "doubleday://"]

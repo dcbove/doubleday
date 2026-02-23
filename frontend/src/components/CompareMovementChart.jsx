@@ -1,4 +1,12 @@
 import { useMemo } from "react";
+import { View } from "react-native";
+import Svg, {
+  Rect,
+  Line,
+  Circle,
+  Ellipse,
+  Text as SvgText,
+} from "react-native-svg";
 import { PITCH_COLORS, DEFAULT_COLOR } from "../util/pitchTypes";
 
 const SVG_WIDTH = 600;
@@ -24,10 +32,6 @@ const PLOT_HEIGHT = SVG_HEIGHT - MARGIN.top - MARGIN.bottom;
 export default function CompareMovementChart({
   pitchesA,
   pitchesB,
-  playerA,
-  playerB,
-  seasonA,
-  seasonB,
   hoveredPitchType,
   onHover,
 }) {
@@ -80,16 +84,19 @@ export default function CompareMovementChart({
     if (v % 5 !== 0) yMinorTicks.push(v);
   }
 
+  function handlePress(pitchType) {
+    onHover(hoveredPitchType === pitchType ? null : pitchType);
+  }
+
   return (
-    <div>
-      <svg
+    <View style={{ aspectRatio: SVG_WIDTH / SVG_HEIGHT }} className="w-full max-w-[250px] sm:max-w-[400px]">
+      <Svg
         viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
-        className="w-full max-w-[250px] sm:max-w-[400px]"
-        role="img"
-        aria-label="Pitch movement comparison chart"
+        width="100%"
+        height="100%"
       >
         {/* Plot background */}
-        <rect
+        <Rect
           x={MARGIN.left}
           y={MARGIN.top}
           width={PLOT_WIDTH}
@@ -99,7 +106,7 @@ export default function CompareMovementChart({
 
         {/* Minor grid lines */}
         {xMinorTicks.map((v) => (
-          <line
+          <Line
             key={`gmx-${v}`}
             x1={scaleX(v)}
             x2={scaleX(v)}
@@ -110,7 +117,7 @@ export default function CompareMovementChart({
           />
         ))}
         {yMinorTicks.map((v) => (
-          <line
+          <Line
             key={`gmy-${v}`}
             x1={MARGIN.left}
             x2={SVG_WIDTH - MARGIN.right}
@@ -123,7 +130,7 @@ export default function CompareMovementChart({
 
         {/* Major grid lines */}
         {xTicks.map((v) => (
-          <line
+          <Line
             key={`gx-${v}`}
             x1={scaleX(v)}
             x2={scaleX(v)}
@@ -134,7 +141,7 @@ export default function CompareMovementChart({
           />
         ))}
         {yTicks.map((v) => (
-          <line
+          <Line
             key={`gy-${v}`}
             x1={MARGIN.left}
             x2={SVG_WIDTH - MARGIN.right}
@@ -147,7 +154,7 @@ export default function CompareMovementChart({
 
         {/* Zero crosshair lines */}
         {xMin <= 0 && xMax >= 0 && (
-          <line
+          <Line
             x1={scaleX(0)}
             x2={scaleX(0)}
             y1={MARGIN.top}
@@ -158,7 +165,7 @@ export default function CompareMovementChart({
           />
         )}
         {yMin <= 0 && yMax >= 0 && (
-          <line
+          <Line
             x1={MARGIN.left}
             x2={SVG_WIDTH - MARGIN.right}
             y1={scaleY(0)}
@@ -171,7 +178,7 @@ export default function CompareMovementChart({
 
         {/* Tick labels */}
         {xTicks.map((v) => (
-          <text
+          <SvgText
             key={`tx-${v}`}
             x={scaleX(v)}
             y={SVG_HEIGHT - MARGIN.bottom + 18}
@@ -180,10 +187,10 @@ export default function CompareMovementChart({
             fill="#6b7280"
           >
             {v}
-          </text>
+          </SvgText>
         ))}
         {yTicks.map((v) => (
-          <text
+          <SvgText
             key={`ty-${v}`}
             x={MARGIN.left - 10}
             y={scaleY(v) + 4}
@@ -192,11 +199,11 @@ export default function CompareMovementChart({
             fill="#6b7280"
           >
             {v}
-          </text>
+          </SvgText>
         ))}
 
         {/* Axis labels */}
-        <text
+        <SvgText
           x={MARGIN.left + PLOT_WIDTH / 2}
           y={SVG_HEIGHT - 6}
           textAnchor="middle"
@@ -204,17 +211,19 @@ export default function CompareMovementChart({
           fill="#374151"
         >
           Horizontal Break (in.)
-        </text>
-        <text
+        </SvgText>
+        <SvgText
           x={16}
           y={MARGIN.top + PLOT_HEIGHT / 2}
           textAnchor="middle"
           fontSize={21}
           fill="#374151"
-          transform={`rotate(-90, 16, ${MARGIN.top + PLOT_HEIGHT / 2})`}
+          rotation={-90}
+          originX={16}
+          originY={MARGIN.top + PLOT_HEIGHT / 2}
         >
           Vertical Break (in.)
-        </text>
+        </SvgText>
 
         {/* Pitcher A ellipses (solid) */}
         {pitchesA.map((p) => {
@@ -222,7 +231,7 @@ export default function CompareMovementChart({
           const isHovered = hoveredPitchType === p.pitch_type;
           const dimmed = hoveredPitchType && !isHovered;
           return (
-            <ellipse
+            <Ellipse
               key={`ea-${p.pitch_type}`}
               cx={scaleX(p.avg_horz_break_in)}
               cy={scaleY(p.avg_vert_break_in)}
@@ -252,7 +261,7 @@ export default function CompareMovementChart({
           const isHovered = hoveredPitchType === p.pitch_type;
           const dimmed = hoveredPitchType && !isHovered;
           return (
-            <ellipse
+            <Ellipse
               key={`eb-${p.pitch_type}`}
               cx={scaleX(p.avg_horz_break_in)}
               cy={scaleY(p.avg_vert_break_in)}
@@ -282,7 +291,7 @@ export default function CompareMovementChart({
           const isHovered = hoveredPitchType === p.pitch_type;
           const dimmed = hoveredPitchType && !isHovered;
           return (
-            <circle
+            <Circle
               key={`ca-${p.pitch_type}`}
               cx={scaleX(p.avg_horz_break_in)}
               cy={scaleY(p.avg_vert_break_in)}
@@ -301,7 +310,7 @@ export default function CompareMovementChart({
           const isHovered = hoveredPitchType === p.pitch_type;
           const dimmed = hoveredPitchType && !isHovered;
           return (
-            <circle
+            <Circle
               key={`cb-${p.pitch_type}`}
               cx={scaleX(p.avg_horz_break_in)}
               cy={scaleY(p.avg_vert_break_in)}
@@ -314,32 +323,28 @@ export default function CompareMovementChart({
           );
         })}
 
-        {/* Invisible hit targets for both pitchers */}
+        {/* Tap targets for both pitchers */}
         {pitchesA.map((p) => (
-          <circle
+          <Circle
             key={`ha-${p.pitch_type}`}
             cx={scaleX(p.avg_horz_break_in)}
             cy={scaleY(p.avg_vert_break_in)}
-            r={16}
+            r={20}
             fill="transparent"
-            style={{ cursor: "pointer" }}
-            onMouseEnter={() => onHover(p.pitch_type)}
-            onMouseLeave={() => onHover(null)}
+            onPress={() => handlePress(p.pitch_type)}
           />
         ))}
         {pitchesB.map((p) => (
-          <circle
+          <Circle
             key={`hb-${p.pitch_type}`}
             cx={scaleX(p.avg_horz_break_in)}
             cy={scaleY(p.avg_vert_break_in)}
-            r={16}
+            r={20}
             fill="transparent"
-            style={{ cursor: "pointer" }}
-            onMouseEnter={() => onHover(p.pitch_type)}
-            onMouseLeave={() => onHover(null)}
+            onPress={() => handlePress(p.pitch_type)}
           />
         ))}
-      </svg>
-    </div>
+      </Svg>
+    </View>
   );
 }

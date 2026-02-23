@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { Link } from "react-router";
+import { View, Text, Image, ScrollView, Pressable } from "react-native";
+import { Link } from "expo-router";
 
 /**
  * Compact scrollable list of similar pitchers based on shape-similarity scores.
@@ -29,58 +30,69 @@ export default function SimilarPitchersList({
   if (rows.length === 0) return null;
 
   return (
-    <div className="max-h-[200px] overflow-y-auto rounded-lg border border-gray-200 sm:max-h-none sm:h-full">
-      <ul className="divide-y divide-gray-100">
-        {rows.map((row) => (
-          <li key={`${row.neighbor_pitcher}-${row.neighbor_season}`}>
+    <View
+      className="rounded-lg border border-gray-200"
+      style={{ overflow: "hidden", flex: 1 }}
+    >
+      <ScrollView>
+        {rows.map((row, idx) => (
+          <View key={`${row.neighbor_pitcher}-${row.neighbor_season}`}>
+            {idx > 0 && <View className="border-b border-gray-100" />}
             <Link
-              to={`/pitchers/${sourcePitcherId}/compare`}
-              state={{
-                season: sourceSeason,
-                pitcherBId: row.neighbor_pitcher,
-                seasonB: row.neighbor_season,
+              href={{
+                pathname: `/pitchers/${sourcePitcherId}/compare`,
+                params: {
+                  pitcherBId: row.neighbor_pitcher,
+                  seasonA: sourceSeason,
+                  seasonB: row.neighbor_season,
+                },
               }}
-              className="flex items-center gap-1.5 px-2 py-1 hover:bg-gray-50 sm:gap-2 sm:px-3 sm:py-1.5"
+              asChild
             >
-              {/* Rank */}
-              <span className="w-4 shrink-0 text-center text-[9px] font-semibold text-gray-400 sm:text-[11px]">
-                {row.rank}
-              </span>
+              <Pressable className="flex-row items-center gap-1.5 px-2 py-1 active:bg-gray-50 sm:gap-2 sm:px-3 sm:py-1.5">
+                {/* Rank */}
+                <Text className="w-4 text-center text-[9px] font-semibold text-gray-400 sm:text-[11px]">
+                  {row.rank}
+                </Text>
 
-              {/* Headshot */}
-              {row.player ? (
-                <img
-                  src={row.player.headshot_url}
-                  alt=""
-                  className="h-5 w-5 shrink-0 rounded-full bg-gray-100 object-cover sm:h-6 sm:w-6"
-                  onError={(e) => {
-                    e.target.style.display = "none";
-                  }}
-                />
-              ) : (
-                <span className="h-5 w-5 shrink-0 rounded-full bg-gray-200 sm:h-6 sm:w-6" />
-              )}
+                {/* Headshot */}
+                {row.player ? (
+                  <Image
+                    source={{ uri: row.player.headshot_url }}
+                    className="h-5 w-5 rounded-full bg-gray-100 sm:h-6 sm:w-6"
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View className="h-5 w-5 rounded-full bg-gray-200 sm:h-6 sm:w-6" />
+                )}
 
-              {/* Name + team */}
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[10px] font-medium text-gray-900 sm:text-xs">
-                  {row.player
-                    ? `${row.player.first} ${row.player.last}`
-                    : `Pitcher #${row.neighbor_pitcher}`}
-                </p>
-                <p className="truncate text-[9px] leading-tight text-gray-500 sm:text-[11px]">
-                  {row.team?.abbr || "\u2014"} &middot; {row.neighbor_season}
-                </p>
-              </div>
+                {/* Name + team */}
+                <View className="min-w-0 flex-1">
+                  <Text
+                    className="text-[10px] font-medium text-gray-900 sm:text-xs"
+                    numberOfLines={1}
+                  >
+                    {row.player
+                      ? `${row.player.first} ${row.player.last}`
+                      : `Pitcher #${row.neighbor_pitcher}`}
+                  </Text>
+                  <Text
+                    className="text-[9px] leading-tight text-gray-500 sm:text-[11px]"
+                    numberOfLines={1}
+                  >
+                    {row.team?.abbr || "\u2014"} · {row.neighbor_season}
+                  </Text>
+                </View>
 
-              {/* Similarity score */}
-              <span className="shrink-0 text-[9px] text-gray-500 sm:text-[11px]">
-                {(row.similarity_score * 100).toFixed(1)}%
-              </span>
+                {/* Similarity score */}
+                <Text className="text-[9px] text-gray-500 sm:text-[11px]">
+                  {(row.similarity_score * 100).toFixed(1)}%
+                </Text>
+              </Pressable>
             </Link>
-          </li>
+          </View>
         ))}
-      </ul>
-    </div>
+      </ScrollView>
+    </View>
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { View, Text, ScrollView, Pressable } from "react-native";
 import { PITCH_COLORS, PITCH_NAMES, DEFAULT_COLOR } from "../util/pitchTypes";
 
 /**
@@ -24,104 +25,96 @@ const ROWS = [
   { label: "Count", fn: (p) => `${p.pitch_count}` },
 ];
 
+const LABEL_WIDTH = 80;
+
 /**
  * Stats table showing all pitch types as columns with highlighted selection.
  *
- * Each pitch type is a column. Hovering or selecting a pitch type highlights
- * that column. Rows show velocity, movement, spin, and usage stats.
+ * Each pitch type is a column. Tapping a pitch type highlights that column.
+ * Rows show velocity, movement, spin, and usage stats.
  *
  * @param {{ pitches: Array, hoveredPitchType: string|null, onHover: function }} props
  */
 export default function PitchStatsTable({ pitches, hoveredPitchType, onHover }) {
-  const containerRef = useRef(null);
-  const stickyRef = useRef(null);
-  const colRefs = useRef({});
+  const scrollRef = useRef(null);
+  const columnOffsets = useRef({});
+
+  function handlePress(pitchType) {
+    onHover(hoveredPitchType === pitchType ? null : pitchType);
+  }
 
   useEffect(() => {
-    const col = colRefs.current[hoveredPitchType];
-    const container = containerRef.current;
-    const sticky = stickyRef.current;
-    if (!col || !container || !sticky) return;
-
-    const stickyWidth = sticky.offsetWidth;
-    const colLeft = col.offsetLeft;
-    const colRight = colLeft + col.offsetWidth;
-    const visibleLeft = container.scrollLeft + stickyWidth;
-    const visibleRight = container.scrollLeft + container.clientWidth;
-
-    if (colRight > visibleRight) {
-      container.scrollTo({
-        left: colRight - container.clientWidth + 8,
-        behavior: "smooth",
-      });
-    } else if (colLeft < visibleLeft) {
-      container.scrollTo({
-        left: colLeft - stickyWidth - 8,
-        behavior: "smooth",
-      });
+    if (hoveredPitchType && scrollRef.current && columnOffsets.current[hoveredPitchType] != null) {
+      scrollRef.current.scrollTo({ x: columnOffsets.current[hoveredPitchType], animated: true });
     }
   }, [hoveredPitchType]);
 
   return (
-    <div ref={containerRef} className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr>
-            <th ref={stickyRef} className="sticky left-0 bg-white px-1.5 py-1 text-left text-[10px] font-medium uppercase tracking-wide text-gray-400 sm:px-3 sm:py-2 sm:text-xs">
-              Stat
-            </th>
-            {pitches.map((p) => {
-              const color = PITCH_COLORS[p.pitch_type] || DEFAULT_COLOR;
-              const isHovered = hoveredPitchType === p.pitch_type;
-              return (
-                <th
-                  key={p.pitch_type}
-                  ref={(el) => { colRefs.current[p.pitch_type] = el; }}
-                  className={`cursor-pointer px-1.5 py-1 text-right text-[10px] font-semibold transition-colors sm:px-3 sm:py-2 sm:text-xs ${
-                    isHovered ? "bg-blue-50" : ""
-                  }`}
-                  onMouseEnter={() => onHover(p.pitch_type)}
-                  onMouseLeave={() => onHover(null)}
+    <View className="flex-row">
+      {/* Sticky label column */}
+      <View style={{ width: LABEL_WIDTH }}>
+        <View className="px-1.5 py-1 sm:px-3 sm:py-2">
+          <Text className="text-[10px] font-medium uppercase tracking-wide text-gray-400 sm:text-xs">
+            Stat
+          </Text>
+        </View>
+        {ROWS.map((row) => (
+          <View key={row.label} className="px-1.5 py-1 sm:px-3 sm:py-1.5">
+            <Text
+              className="text-[10px] font-medium text-gray-500 sm:text-xs"
+              numberOfLines={1}
+            >
+              {row.label}
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      {/* Scrollable pitch type columns */}
+      <ScrollView ref={scrollRef} horizontal showsHorizontalScrollIndicator={false}>
+        {pitches.map((p) => {
+          const color = PITCH_COLORS[p.pitch_type] || DEFAULT_COLOR;
+          const isHovered = hoveredPitchType === p.pitch_type;
+          return (
+            <Pressable
+              key={p.pitch_type}
+              onPress={() => handlePress(p.pitch_type)}
+              onLayout={(e) => { columnOffsets.current[p.pitch_type] = e.nativeEvent.layout.x; }}
+              className={isHovered ? "bg-blue-50" : ""}
+            >
+              {/* Header */}
+              <View className="flex-row items-center justify-end gap-1.5 px-1.5 py-1 sm:px-3 sm:py-2">
+                <View
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{ backgroundColor: color }}
+                />
+                <Text
+                  className="text-[10px] font-semibold text-gray-900 sm:text-xs"
+                  numberOfLines={1}
                 >
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span
-                      className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: color }}
-                    />
-                    <span className="text-gray-900">
-                      {PITCH_NAMES[p.pitch_type] || p.pitch_type}
-                    </span>
-                  </div>
-                </th>
-              );
-            })}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
-          {ROWS.map((row) => (
-            <tr key={row.label}>
-              <td className="sticky left-0 bg-white whitespace-nowrap px-1.5 py-1 text-[10px] font-medium text-gray-500 sm:px-3 sm:py-1.5 sm:text-xs">
-                {row.label}
-              </td>
-              {pitches.map((p) => {
-                const isHovered = hoveredPitchType === p.pitch_type;
-                return (
-                  <td
-                    key={p.pitch_type}
-                    className={`cursor-pointer whitespace-nowrap px-1.5 py-1 text-right tabular-nums text-[10px] text-gray-900 transition-colors sm:px-3 sm:py-1.5 sm:text-xs ${
-                      isHovered ? "bg-blue-50 font-semibold" : ""
+                  {PITCH_NAMES[p.pitch_type] || p.pitch_type}
+                </Text>
+              </View>
+              {/* Data rows */}
+              {ROWS.map((row) => (
+                <View
+                  key={row.label}
+                  className="px-1.5 py-1 sm:px-3 sm:py-1.5"
+                >
+                  <Text
+                    className={`text-right text-[10px] text-gray-900 sm:text-xs ${
+                      isHovered ? "font-semibold" : ""
                     }`}
-                    onMouseEnter={() => onHover(p.pitch_type)}
-                    onMouseLeave={() => onHover(null)}
+                    numberOfLines={1}
                   >
                     {row.fn(p)}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+                  </Text>
+                </View>
+              ))}
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </View>
   );
 }

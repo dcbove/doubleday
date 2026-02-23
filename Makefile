@@ -50,12 +50,12 @@ frontend-deploy: frontend-install
 	$(eval DOMAIN := $(shell grep frontend_domain_name $(TF_DIR)/terraform.tfvars | sed 's/.*"\(.*\)"/\1/'))
 	$(eval COGNITO_DOMAIN := $(shell echo doubleday-$(ENV)))
 	cd frontend && \
-		VITE_COGNITO_USER_POOL_ID=$(POOL_ID) \
-		VITE_COGNITO_CLIENT_ID=$(CLIENT_ID) \
-		VITE_COGNITO_DOMAIN=$(COGNITO_DOMAIN) \
-		VITE_COGNITO_REGION=us-east-1 \
-		VITE_REDIRECT_SIGN_IN=https://$(DOMAIN)/callback \
-		VITE_REDIRECT_SIGN_OUT=https://$(DOMAIN) \
+		EXPO_PUBLIC_COGNITO_USER_POOL_ID=$(POOL_ID) \
+		EXPO_PUBLIC_COGNITO_CLIENT_ID=$(CLIENT_ID) \
+		EXPO_PUBLIC_COGNITO_DOMAIN=$(COGNITO_DOMAIN) \
+		EXPO_PUBLIC_COGNITO_REGION=us-east-1 \
+		EXPO_PUBLIC_REDIRECT_SIGN_IN=https://$(DOMAIN)/callback \
+		EXPO_PUBLIC_REDIRECT_SIGN_OUT=https://$(DOMAIN) \
 		npm run build
 	aws s3 sync frontend/dist "s3://$(BUCKET)" --delete --exclude "static/catalogs/*"
 	aws cloudfront create-invalidation --distribution-id "$(DIST_ID)" --paths "/*"

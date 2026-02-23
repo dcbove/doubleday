@@ -37,6 +37,7 @@ Each API Lambda lives in `src/doubleday/api/<name>/` with:
 - **Pipeline modules** (`terraform/modules/pipeline/`): s3, glue, lambda, step_function. Lambda functions receive the shared zip as variables.
 - **Cognito module** (`terraform/modules/cognito/`): User pool with Google federation. Optional test client (`enable_test_client`) for integration testing via `USER_PASSWORD_AUTH`.
 - **API module** (`terraform/modules/api/`): API Gateway, authorizer Lambda, query Lambda, custom domain, rate limiting. Each endpoint is a self-contained `.tf` file (Lambda + IAM + API GW resources + CORS).
+- **Frontend module** (`terraform/modules/frontend/`): S3 + CloudFront + OAC + domain. SPA takes the root domain; API moves to `api.` subdomain.
 - **OIDC module** (`terraform/modules/oidc/`): GitHub Actions IAM role via OIDC federation. Lives in its own root module (`terraform/environments/oidc/`) with separate state, applied before dev/prod in CI.
 - **Environments** (`terraform/environments/{dev,prod}/main.tf`): Call `module "doubleday"` and pass variables.
 - See `terraform/CLAUDE.md` for detailed Terraform architecture and conventions.
@@ -54,25 +55,18 @@ Each API Lambda lives in `src/doubleday/api/<name>/` with:
 
 ### Frontend Pattern
 
-React SPA in `frontend/`. Stack: React 19, Vite 6, Tailwind v4, Amplify v6 (auth only). Plain JavaScript, not TypeScript.
+Expo React Native app in `frontend/` targeting iOS, Android, and web from a single codebase. Stack: Expo SDK 54, Expo Router (file-based routing), NativeWind v4 (Tailwind CSS 3.x for React Native), react-native-svg, Amplify v6 (auth only). Plain JavaScript, not TypeScript.
 
-- Pages in `frontend/src/pages/<Name>.jsx` — one component per route.
+- Routes in `frontend/app/` — Expo Router file-based routing. Protected routes under `app/(auth)/`.
 - Shared UI in `frontend/src/components/<Name>.jsx`.
-- Auth via `frontend/src/auth/` — Amplify Cognito PKCE flow with Google federation. `AuthProvider.jsx` wraps the app, `useAuth.js` hook exposes `user`, `login`, `logout`, `getAccessToken`.
-- API calls via `frontend/src/api/client.js` — `fetch` wrapper that injects Bearer token. Calls `/api/*`; CloudFront (prod) or Vite proxy (dev) strips the prefix and injects `x-api-key`.
-- Amplify config in `frontend/src/auth/amplifyConfig.js` — reads Cognito settings from `VITE_*` env vars.
-- **Frontend module** (`terraform/modules/frontend/`): S3 bucket (OAC), CloudFront distribution, CF Function to strip `/api` prefix, ACM cert, Route53 record.
-
-### Terraform Pattern
-
-- **Composition module** (`terraform/modules/doubleday/`): Wires all child modules together and builds the shared Lambda zip. Environments call this single module.
-- **Pipeline modules** (`terraform/modules/pipeline/`): s3, glue, lambda, step_function. Lambda functions receive the shared zip as variables.
-- **Cognito module** (`terraform/modules/cognito/`): User pool with Google federation. Optional test client (`enable_test_client`) for integration testing via `USER_PASSWORD_AUTH`.
-- **API module** (`terraform/modules/api/`): API Gateway, authorizer Lambda, query Lambda, custom domain, rate limiting. Each endpoint is a self-contained `.tf` file (Lambda + IAM + API GW resources + CORS).
-- **Frontend module** (`terraform/modules/frontend/`): S3 + CloudFront + OAC + domain. SPA takes the root domain; API moves to `api.` subdomain.
-- **OIDC module** (`terraform/modules/oidc/`): GitHub Actions IAM role via OIDC federation. Lives in its own root module (`terraform/environments/oidc/`) with separate state, applied before dev/prod in CI.
-- **Environments** (`terraform/environments/{dev,prod}/main.tf`): Call `module "doubleday"` and pass variables.
-- See `terraform/CLAUDE.md` for detailed Terraform architecture and conventions.
+- Auth via `frontend/src/auth/` — Amplify Cognito PKCE flow with Google federation. `AuthProvider.jsx` wraps the app, `useAuth.js` hook exposes `user`, `login`, `logout`, `getAccessToken`. Platform-aware redirect URIs in `amplifyConfig.js` (web uses HTTPS URLs, mobile uses `doubleday://` deep links).
+- API calls via `frontend/src/api/client.js` — `fetch` wrapper that injects Bearer token. On web, calls CloudFront URL (which proxies `/api/*` to API Gateway and injects `x-api-key`). On mobile, calls API directly with `x-api-key` header.
+- Env vars use `EXPO_PUBLIC_*` prefix (read by Metro bundler at build time).
+- Local dev: `npx expo start --web` (port 8081) against deployed CloudFront backend (`EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_CDN_ORIGIN`).
+- Web production build: `npx expo export --platform web` → outputs to `dist/`.
+- Charts use `react-native-svg` (`Svg`, `Circle`, `Ellipse`, `Line`, `Text as SvgText`). Tap-to-toggle replaces mouse hover for pitch type selection.
+- Catalog caching uses `@react-native-async-storage/async-storage` (replaces `localStorage`).
+- **Frontend module** (`terraform/modules/frontend/`): S3 bucket (OAC), CloudFront distribution, CF Function to strip `/api` prefix, ACM cert, Route53 record. S3 CORS configured for `localhost:8081` (local dev cross-origin static file access).
 
 ### Domain Layout
 
@@ -88,4 +82,5 @@ React SPA in `frontend/`. Stack: React 19, Vite 6, Tailwind v4, Amplify v6 (auth
 - Lambda package: `terraform/modules/doubleday/package.tf` bundles `src/doubleday/**/*.py` + `sql/pipeline/*.sql` + `sql/api/*.sql` + pip deps (PyJWT, cryptography)
 - API code: `src/doubleday/api/`
 - Pipeline code: `src/doubleday/pipeline/`
+- Frontend routes: `frontend/app/` (Expo Router file-based)
 - Frontend code: `frontend/src/`

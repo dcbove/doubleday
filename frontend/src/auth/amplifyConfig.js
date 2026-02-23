@@ -1,16 +1,34 @@
+import { Platform } from "react-native";
 import { Amplify } from "aws-amplify";
+
+const region = process.env.EXPO_PUBLIC_COGNITO_REGION;
+const domain = process.env.EXPO_PUBLIC_COGNITO_DOMAIN;
+
+function getRedirectSignIn() {
+  if (Platform.OS === "web") {
+    return process.env.EXPO_PUBLIC_REDIRECT_SIGN_IN;
+  }
+  return "doubleday://callback";
+}
+
+function getRedirectSignOut() {
+  if (Platform.OS === "web") {
+    return process.env.EXPO_PUBLIC_REDIRECT_SIGN_OUT;
+  }
+  return "doubleday://";
+}
 
 Amplify.configure({
   Auth: {
     Cognito: {
-      userPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID,
-      userPoolClientId: import.meta.env.VITE_COGNITO_CLIENT_ID,
+      userPoolId: process.env.EXPO_PUBLIC_COGNITO_USER_POOL_ID,
+      userPoolClientId: process.env.EXPO_PUBLIC_COGNITO_CLIENT_ID,
       loginWith: {
         oauth: {
-          domain: `${import.meta.env.VITE_COGNITO_DOMAIN}.auth.${import.meta.env.VITE_COGNITO_REGION}.amazoncognito.com`,
+          domain: `${domain}.auth.${region}.amazoncognito.com`,
           scopes: ["openid", "email", "profile"],
-          redirectSignIn: [import.meta.env.VITE_REDIRECT_SIGN_IN],
-          redirectSignOut: [import.meta.env.VITE_REDIRECT_SIGN_OUT],
+          redirectSignIn: [getRedirectSignIn()],
+          redirectSignOut: [getRedirectSignOut()],
           responseType: "code",
         },
       },

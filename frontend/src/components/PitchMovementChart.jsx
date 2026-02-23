@@ -1,4 +1,12 @@
 import { useMemo } from "react";
+import { View, Pressable } from "react-native";
+import Svg, {
+  Rect,
+  Line,
+  Circle,
+  Ellipse,
+  Text as SvgText,
+} from "react-native-svg";
 import { PITCH_COLORS, DEFAULT_COLOR } from "../util/pitchTypes";
 
 const SVG_WIDTH = 600;
@@ -12,7 +20,7 @@ const PLOT_HEIGHT = SVG_HEIGHT - MARGIN.top - MARGIN.bottom;
  *
  * Plots each pitch type as a colored circle at its average (horizontal break,
  * IVB) position with a semi-transparent ellipse showing the p10-p90 spread.
- * Hovering a pitch type highlights it and dims the others.
+ * Tapping a pitch type toggles highlight; tapping again deselects.
  *
  * @param {{ pitches: Array, hoveredPitchType: string|null, onHover: function }} props
  */
@@ -65,16 +73,19 @@ export default function PitchMovementChart({
     if (v % 5 !== 0) yMinorTicks.push(v);
   }
 
+  function handlePress(pitchType) {
+    onHover(hoveredPitchType === pitchType ? null : pitchType);
+  }
+
   return (
-    <div>
-      <svg
+    <View style={{ aspectRatio: SVG_WIDTH / SVG_HEIGHT }} className="w-full max-w-[250px] sm:max-w-[400px]">
+      <Svg
         viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
-        className="w-full max-w-[250px] sm:max-w-[400px]"
-        role="img"
-        aria-label="Pitch movement chart"
+        width="100%"
+        height="100%"
       >
         {/* Plot background */}
-        <rect
+        <Rect
           x={MARGIN.left}
           y={MARGIN.top}
           width={PLOT_WIDTH}
@@ -84,7 +95,7 @@ export default function PitchMovementChart({
 
         {/* Minor grid lines (every 1 inch) */}
         {xMinorTicks.map((v) => (
-          <line
+          <Line
             key={`gmx-${v}`}
             x1={scaleX(v)}
             x2={scaleX(v)}
@@ -95,7 +106,7 @@ export default function PitchMovementChart({
           />
         ))}
         {yMinorTicks.map((v) => (
-          <line
+          <Line
             key={`gmy-${v}`}
             x1={MARGIN.left}
             x2={SVG_WIDTH - MARGIN.right}
@@ -108,7 +119,7 @@ export default function PitchMovementChart({
 
         {/* Major grid lines (every 5 inches) */}
         {xTicks.map((v) => (
-          <line
+          <Line
             key={`gx-${v}`}
             x1={scaleX(v)}
             x2={scaleX(v)}
@@ -119,7 +130,7 @@ export default function PitchMovementChart({
           />
         ))}
         {yTicks.map((v) => (
-          <line
+          <Line
             key={`gy-${v}`}
             x1={MARGIN.left}
             x2={SVG_WIDTH - MARGIN.right}
@@ -132,7 +143,7 @@ export default function PitchMovementChart({
 
         {/* Zero crosshair lines */}
         {xMin <= 0 && xMax >= 0 && (
-          <line
+          <Line
             x1={scaleX(0)}
             x2={scaleX(0)}
             y1={MARGIN.top}
@@ -143,7 +154,7 @@ export default function PitchMovementChart({
           />
         )}
         {yMin <= 0 && yMax >= 0 && (
-          <line
+          <Line
             x1={MARGIN.left}
             x2={SVG_WIDTH - MARGIN.right}
             y1={scaleY(0)}
@@ -156,7 +167,7 @@ export default function PitchMovementChart({
 
         {/* Tick labels */}
         {xTicks.map((v) => (
-          <text
+          <SvgText
             key={`tx-${v}`}
             x={scaleX(v)}
             y={SVG_HEIGHT - MARGIN.bottom + 18}
@@ -165,10 +176,10 @@ export default function PitchMovementChart({
             fill="#6b7280"
           >
             {v}
-          </text>
+          </SvgText>
         ))}
         {yTicks.map((v) => (
-          <text
+          <SvgText
             key={`ty-${v}`}
             x={MARGIN.left - 10}
             y={scaleY(v) + 4}
@@ -177,11 +188,11 @@ export default function PitchMovementChart({
             fill="#6b7280"
           >
             {v}
-          </text>
+          </SvgText>
         ))}
 
         {/* Axis labels */}
-        <text
+        <SvgText
           x={MARGIN.left + PLOT_WIDTH / 2}
           y={SVG_HEIGHT - 6}
           textAnchor="middle"
@@ -189,17 +200,19 @@ export default function PitchMovementChart({
           fill="#374151"
         >
           Horizontal Break (in.)
-        </text>
-        <text
+        </SvgText>
+        <SvgText
           x={16}
           y={MARGIN.top + PLOT_HEIGHT / 2}
           textAnchor="middle"
           fontSize={21}
           fill="#374151"
-          transform={`rotate(-90, 16, ${MARGIN.top + PLOT_HEIGHT / 2})`}
+          rotation={-90}
+          originX={16}
+          originY={MARGIN.top + PLOT_HEIGHT / 2}
         >
           Vertical Break (in.)
-        </text>
+        </SvgText>
 
         {/* Ellipses (p10-p90 spread) */}
         {pitches.map((p) => {
@@ -207,16 +220,19 @@ export default function PitchMovementChart({
           const isHovered = hoveredPitchType === p.pitch_type;
           const dimmed = hoveredPitchType && !isHovered;
           return (
-            <ellipse
+            <Ellipse
               key={`e-${p.pitch_type}`}
               cx={scaleX(p.avg_horz_break_in)}
               cy={scaleY(p.avg_vert_break_in)}
               rx={
-                Math.abs(scaleX(p.p90_horz_break_in) - scaleX(p.p10_horz_break_in)) /
-                2
+                Math.abs(
+                  scaleX(p.p90_horz_break_in) - scaleX(p.p10_horz_break_in),
+                ) / 2
               }
               ry={
-                Math.abs(scaleY(p.p10_vert_break_in) - scaleY(p.p90_vert_break_in)) / 2
+                Math.abs(
+                  scaleY(p.p10_vert_break_in) - scaleY(p.p90_vert_break_in),
+                ) / 2
               }
               fill={color}
               fillOpacity={isHovered ? 0.25 : 0.12}
@@ -234,7 +250,7 @@ export default function PitchMovementChart({
           const isHovered = hoveredPitchType === p.pitch_type;
           const dimmed = hoveredPitchType && !isHovered;
           return (
-            <circle
+            <Circle
               key={`c-${p.pitch_type}`}
               cx={scaleX(p.avg_horz_break_in)}
               cy={scaleY(p.avg_vert_break_in)}
@@ -247,21 +263,18 @@ export default function PitchMovementChart({
           );
         })}
 
-        {/* Invisible hit targets for hover */}
+        {/* Tap targets */}
         {pitches.map((p) => (
-          <circle
+          <Circle
             key={`h-${p.pitch_type}`}
             cx={scaleX(p.avg_horz_break_in)}
             cy={scaleY(p.avg_vert_break_in)}
-            r={16}
+            r={20}
             fill="transparent"
-            style={{ cursor: "pointer" }}
-            onMouseEnter={() => onHover(p.pitch_type)}
-            onMouseLeave={() => onHover(null)}
+            onPress={() => handlePress(p.pitch_type)}
           />
         ))}
-      </svg>
-
-    </div>
+      </Svg>
+    </View>
   );
 }

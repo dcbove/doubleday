@@ -31,6 +31,11 @@ resource "aws_iam_role_policy" "bronze_load" {
         Resource = "${var.lakehouse_bucket_arn}/*"
       },
       {
+        Effect   = "Allow"
+        Action   = "s3:ListBucket"
+        Resource = var.lakehouse_bucket_arn
+      },
+      {
         Effect = "Allow"
         Action = [
           "cloudwatch:PutMetricData",
