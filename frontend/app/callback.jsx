@@ -1,29 +1,29 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router";
+import { View, Text, ActivityIndicator } from "react-native";
+import { router } from "expo-router";
 import { Hub } from "aws-amplify/utils";
 import { getCurrentUser } from "aws-amplify/auth";
 
 export default function Callback() {
-  const navigate = useNavigate();
-
   useEffect(() => {
     const unsubscribe = Hub.listen("auth", ({ payload }) => {
       if (payload.event === "signInWithRedirect") {
-        navigate("/dashboard", { replace: true });
+        router.replace("/dashboard");
       }
     });
 
     // If the user is already signed in (e.g. page refresh), redirect immediately
     getCurrentUser()
-      .then(() => navigate("/dashboard", { replace: true }))
+      .then(() => router.replace("/dashboard"))
       .catch(() => {});
 
     return unsubscribe;
-  }, [navigate]);
+  }, []);
 
   return (
-    <div className="flex h-screen items-center justify-center">
-      <p className="text-gray-500">Signing in...</p>
-    </div>
+    <View className="flex-1 items-center justify-center">
+      <ActivityIndicator size="large" color="#6b7280" />
+      <Text className="mt-4 text-gray-500">Signing in...</Text>
+    </View>
   );
 }

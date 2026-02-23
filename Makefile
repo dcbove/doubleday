@@ -1,5 +1,5 @@
 .PHONY: lint format typecheck test test-integration check-all run install install-hooks clean \
-	frontend-install frontend-build frontend-dev frontend-deploy frontend-clean
+	frontend-install frontend-build frontend-dev frontend-ios frontend-deploy frontend-clean
 
 # Linting and formatting
 lint:
@@ -40,6 +40,9 @@ frontend-build: frontend-install
 frontend-dev:
 	cd frontend && npm run dev
 
+frontend-ios:
+	cd frontend && npx expo run:ios
+
 frontend-deploy: frontend-install
 	$(eval ENV ?= dev)
 	$(eval TF_DIR := terraform/environments/$(ENV))
@@ -50,12 +53,12 @@ frontend-deploy: frontend-install
 	$(eval DOMAIN := $(shell grep frontend_domain_name $(TF_DIR)/terraform.tfvars | sed 's/.*"\(.*\)"/\1/'))
 	$(eval COGNITO_DOMAIN := $(shell echo doubleday-$(ENV)))
 	cd frontend && \
-		VITE_COGNITO_USER_POOL_ID=$(POOL_ID) \
-		VITE_COGNITO_CLIENT_ID=$(CLIENT_ID) \
-		VITE_COGNITO_DOMAIN=$(COGNITO_DOMAIN) \
-		VITE_COGNITO_REGION=us-east-1 \
-		VITE_REDIRECT_SIGN_IN=https://$(DOMAIN)/callback \
-		VITE_REDIRECT_SIGN_OUT=https://$(DOMAIN) \
+		EXPO_PUBLIC_COGNITO_USER_POOL_ID=$(POOL_ID) \
+		EXPO_PUBLIC_COGNITO_CLIENT_ID=$(CLIENT_ID) \
+		EXPO_PUBLIC_COGNITO_DOMAIN=$(COGNITO_DOMAIN) \
+		EXPO_PUBLIC_COGNITO_REGION=us-east-1 \
+		EXPO_PUBLIC_REDIRECT_SIGN_IN=https://$(DOMAIN)/callback \
+		EXPO_PUBLIC_REDIRECT_SIGN_OUT=https://$(DOMAIN) \
 		npm run build
 	aws s3 sync frontend/dist "s3://$(BUCKET)" --delete --exclude "static/catalogs/*"
 	aws cloudfront create-invalidation --distribution-id "$(DIST_ID)" --paths "/*"
@@ -84,6 +87,7 @@ help:
 	@echo "  make frontend-install   - Install frontend dependencies"
 	@echo "  make frontend-build     - Build frontend for production"
 	@echo "  make frontend-deploy    - Build and deploy frontend (ENV=dev|prod)"
-	@echo "  make frontend-dev       - Start frontend dev server"
+	@echo "  make frontend-dev       - Start frontend web dev server"
+	@echo "  make frontend-ios       - Build and run on iOS simulator"
 	@echo "  make clean              - Clean up all cache files and build artifacts"
 	@echo "  make help               - Show this help"

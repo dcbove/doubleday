@@ -1,23 +1,15 @@
 #!/usr/bin/env bash
-# Build the Lambda deployment package (deps + source + SQL).
-# Single source of truth — called by CI workflows and terraform (package.tf).
+# Build the Lambda deployment package (source + SQL only).
+# Dependencies (PyJWT, cryptography) live in a separate Lambda Layer
+# built by build_lambda_layer.sh.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
-rm -rf builds/lambda_deps builds/lambda_package
+rm -rf builds/lambda_package
 mkdir -p builds/lambda_package/doubleday/sql/pipeline builds/lambda_package/doubleday/sql/api
-
-pip install PyJWT==2.11.0 cryptography==46.0.5 \
-  --target builds/lambda_deps \
-  --platform manylinux2014_x86_64 \
-  --only-binary=:all: \
-  --python-version 3.12 \
-  --quiet
-
-cp -r builds/lambda_deps/* builds/lambda_package/
 
 (cd src && find doubleday -name '*.py' | while IFS= read -r f; do
   mkdir -p "../builds/lambda_package/$(dirname "$f")"

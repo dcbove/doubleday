@@ -21,6 +21,17 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "frontend" {
   }
 }
 
+resource "aws_s3_bucket_cors_configuration" "frontend" {
+  bucket = aws_s3_bucket.frontend.id
+
+  cors_rule {
+    allowed_headers = ["*"]
+    allowed_methods = ["GET"]
+    allowed_origins = ["http://localhost:8081"]
+    max_age_seconds = 3600
+  }
+}
+
 resource "aws_s3_bucket_policy" "frontend" {
   bucket = aws_s3_bucket.frontend.id
 

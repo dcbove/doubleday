@@ -104,27 +104,49 @@ tests/
       test_query_pitches_gateway.py         # API integration — test-invoke-method (no auth)
       test_query_pitches_auth.py            # API integration — end-to-end HTTPS with auth
 frontend/
-  index.html              # Entry HTML
-  package.json            # Dependencies: React 19, Vite 6, Tailwind v4, Amplify v6
-  vite.config.js          # Dev proxy (/api/* → API Gateway), Tailwind plugin
+  app/                      # Expo Router file-based routes
+    _layout.jsx             # Root: AuthProvider, fonts, global CSS
+    index.jsx               # Landing (public login)
+    callback.jsx            # OAuth callback handler
+    (auth)/                 # Protected route group
+      _layout.jsx           # Shell: Navbar + content area
+      dashboard.jsx         # Search home
+      pitchers/
+        [id].jsx            # Pitcher detail
+        [idA]/
+          compare.jsx       # Pitcher compare
   src/
-    main.jsx              # Entry point, imports Amplify config
-    App.jsx               # BrowserRouter + Routes
-    index.css             # Tailwind import
     auth/
-      amplifyConfig.js    # Amplify.configure() with Cognito PKCE settings
-      AuthProvider.jsx    # React Context: user state, login, logout, getAccessToken
-      useAuth.js          # useContext(AuthContext) hook
-      ProtectedRoute.jsx  # Redirects to / if not authenticated
+      amplifyConfig.js      # Platform-aware Amplify config (EXPO_PUBLIC_* env vars)
+      AuthProvider.jsx       # React Context: user state, login, logout, getAccessToken
+      useAuth.js             # useContext(AuthContext) hook
     api/
-      client.js           # fetch wrapper with Bearer token injection
-    pages/
-      Landing.jsx         # Public: "Sign in with Google" button
-      Callback.jsx        # Handles Cognito OAuth redirect
-      Dashboard.jsx       # Protected: placeholder
+      client.js             # Platform-aware fetch wrapper with Bearer token
     components/
-      Layout.jsx          # App shell with Navbar + content area
-      Navbar.jsx          # Logo, nav links, user info, logout button
+      Navbar.jsx            # Top nav bar
+      PlayerSearch.jsx      # Typeahead search with FlatList results
+      SearchInput.jsx       # Styled TextInput with loading/clear
+      PlayerResult.jsx      # Search result row
+      PitchMovementChart.jsx      # react-native-svg scatter plot
+      PitchStatsTable.jsx         # Stats table (ScrollView-based)
+      SimilarPitchersList.jsx     # Similar pitchers list
+      CompareMovementChart.jsx    # Overlay comparison chart
+      CompareStatsTable.jsx       # Side-by-side comparison table
+    hooks/
+      useCatalog.js         # Catalog fetch + AsyncStorage cache
+      usePitchData.js       # Pitch stats API hook
+      useNeighborData.js    # Similar pitchers API hook
+      catalogCache.js       # AsyncStorage cache helpers
+      normalizeQuery.js     # Search query normalization
+    util/
+      pitchTypes.js         # Pitch type colors and names
+  package.json              # Expo SDK 54, NativeWind v4, react-native-svg, Amplify v6
+  app.json                  # Expo config (scheme, plugins)
+  babel.config.js           # babel-preset-expo + NativeWind
+  metro.config.js           # Metro + NativeWind CSS interop
+  tailwind.config.js        # NativeWind/Tailwind config
+  global.css                # Tailwind directives
+  eas.json                  # EAS Build profiles
 scripts/
   download_year.sh      # Download Statcast CSVs from Baseball Savant
 ```
@@ -140,8 +162,9 @@ make lint               # Lint and auto-fix with ruff
 make format             # Format with black
 make typecheck          # Type check with mypy
 make check-all          # Run all checks (lint, format, typecheck, unit tests)
-make frontend-dev       # Start frontend dev server (http://localhost:5173)
-make frontend-build     # Build frontend for production
+make frontend-dev       # Start frontend web dev server (http://localhost:8081)
+make frontend-ios       # Build and run on iOS simulator
+make frontend-build     # Build frontend for production (web)
 ```
 
 ### Pre-commit hooks
@@ -473,37 +496,43 @@ Requests require an API key (`x-api-key` header) and are subject to rate limitin
 
 ## Frontend
 
-React SPA served from S3 via CloudFront at `https://doubleday-<env>.appleforge.com`. Authenticates users via Cognito (Google federation) using Amplify v6 PKCE flow.
+Expo React Native app targeting iOS, Android, and web from a single codebase. Served from S3 via CloudFront at `https://doubleday-<env>.appleforge.com` (web). Authenticates users via Cognito (Google federation) using Amplify v6 PKCE flow.
 
 ### Architecture
 
 ```
-Browser → CloudFront (doubleday-<env>.appleforge.com)
-            ├── /*       → S3 origin (static SPA assets, OAC)
-            └── /api/*   → CF Function (strip /api) → API Gateway (api.doubleday-<env>.appleforge.com)
-                                                        x-api-key injected as custom origin header
+Web Browser → CloudFront (doubleday-<env>.appleforge.com)
+                ├── /*       → S3 origin (static SPA assets, OAC)
+                └── /api/*   → CF Function (strip /api) → API Gateway (api.doubleday-<env>.appleforge.com)
+                                                            x-api-key injected as custom origin header
+
+Mobile App → API Gateway (api.doubleday-<env>.appleforge.com)
+               x-api-key sent directly by the app
 ```
 
 ### Local development
 
-Create `frontend/.env.local` (gitignored) with your Cognito and API key values:
+Create `frontend/.env` with your Cognito and API key values:
 
 ```bash
 # From: cd terraform/environments/dev && terraform output
-VITE_COGNITO_USER_POOL_ID=<cognito_user_pool_id>
-VITE_COGNITO_CLIENT_ID=<cognito_client_id>
-VITE_COGNITO_DOMAIN=doubleday-dev
-VITE_COGNITO_REGION=us-east-1
-VITE_REDIRECT_SIGN_IN=http://localhost:5173/callback
-VITE_REDIRECT_SIGN_OUT=http://localhost:5173
-VITE_API_KEY=<api_key>
+EXPO_PUBLIC_COGNITO_USER_POOL_ID=<cognito_user_pool_id>
+EXPO_PUBLIC_COGNITO_CLIENT_ID=<cognito_client_id>
+EXPO_PUBLIC_COGNITO_DOMAIN=doubleday-dev
+EXPO_PUBLIC_COGNITO_REGION=us-east-1
+EXPO_PUBLIC_REDIRECT_SIGN_IN=http://localhost:8081/callback
+EXPO_PUBLIC_REDIRECT_SIGN_OUT=http://localhost:8081
+EXPO_PUBLIC_API_URL=https://doubleday-dev.appleforge.com/api
+EXPO_PUBLIC_CDN_ORIGIN=https://doubleday-dev.appleforge.com
+EXPO_PUBLIC_API_KEY=<api_key>
 ```
 
 ```bash
-make frontend-dev       # http://localhost:5173
+make frontend-dev       # Web: http://localhost:8081
+make frontend-ios       # iOS simulator (requires Xcode)
 ```
 
-The Vite dev server proxies `/api/*` to `https://api.doubleday-dev.appleforge.com`, strips the `/api` prefix, and injects the `x-api-key` header — mirroring CloudFront behavior in production.
+Web dev uses the deployed CloudFront backend (`EXPO_PUBLIC_API_URL` and `EXPO_PUBLIC_CDN_ORIGIN`). In production, these env vars are omitted so the app uses same-origin `/api` and relative static paths.
 
 ## Testing
 
@@ -622,7 +651,7 @@ terraform apply
 
 Environment files (`dev/main.tf`, `prod/main.tf`) call `module "doubleday"` and pass variables — they never reference child modules directly. All inter-module wiring lives in the composition module.
 
-All Lambda functions (pipeline and API) share a single deployment zip built by the composition module (`doubleday/package.tf`). It bundles the full `doubleday` Python package from `src/`, SQL templates from `sql/pipeline/` and `sql/api/`, and pip dependencies (PyJWT, cryptography) for the authorizer. Each Lambda points at the same zip with a different handler entry point. Changing any Python, SQL, or dependency triggers a redeployment of all functions, keeping them in sync.
+All Lambda functions (pipeline and API) share a code zip built by the composition module (`doubleday/package.tf`). It bundles the full `doubleday` Python package from `src/` and SQL templates from `sql/pipeline/` and `sql/api/`. Pip dependencies (PyJWT, cryptography) are in a separate Lambda Layer that only rebuilds when dependencies change. Each Lambda points at the same code zip with a different handler entry point.
 
 Each API endpoint is a self-contained `.tf` file in the `api` module containing its Lambda function, IAM role, API Gateway resources, and CORS configuration.
 
@@ -637,7 +666,7 @@ Infrastructure changes are deployed automatically via GitHub Actions using OIDC 
 
 Dev is deployed during the PR lifecycle so changes can be tested before merging. Prod is deployed only after merging to `main`.
 
-After Terraform apply, the CI pipeline builds the frontend (`npm run build` with Cognito env vars from Terraform outputs), syncs the dist to S3, and invalidates the CloudFront cache.
+After Terraform apply, the CI pipeline builds the frontend (`npx expo export --platform web` with `EXPO_PUBLIC_*` env vars from Terraform outputs), syncs the dist to S3, and invalidates the CloudFront cache.
 
 ### Bootstrap (one-time setup)
 

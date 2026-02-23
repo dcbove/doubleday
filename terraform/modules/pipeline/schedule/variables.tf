@@ -27,3 +27,8 @@ variable "powertools_layer_arn" {
   description = "ARN of the AWS Lambda Powertools for Python layer"
   type        = string
 }
+
+variable "deps_layer_arn" {
+  description = "ARN of the Lambda Layer containing pip dependencies (PyJWT, cryptography)"
+  type        = string
+}

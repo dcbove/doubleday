@@ -90,13 +90,13 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         env:
-          VITE_COGNITO_USER_POOL_ID: ${{ steps.tf.outputs.cognito_pool_id }}
-          VITE_COGNITO_CLIENT_ID: ${{ steps.tf.outputs.cognito_client_id }}
-          VITE_COGNITO_DOMAIN: doubleday-prod
-          VITE_COGNITO_REGION: us-east-1
-          VITE_REDIRECT_SIGN_IN: https://doubleday.appleforge.com/callback
-          VITE_REDIRECT_SIGN_OUT: https://doubleday.appleforge.com
-        run: npm run build
+          EXPO_PUBLIC_COGNITO_USER_POOL_ID: ${{ steps.tf.outputs.cognito_pool_id }}
+          EXPO_PUBLIC_COGNITO_CLIENT_ID: ${{ steps.tf.outputs.cognito_client_id }}
+          EXPO_PUBLIC_COGNITO_DOMAIN: doubleday-prod
+          EXPO_PUBLIC_COGNITO_REGION: us-east-1
+          EXPO_PUBLIC_REDIRECT_SIGN_IN: https://doubleday.appleforge.com/callback
+          EXPO_PUBLIC_REDIRECT_SIGN_OUT: https://doubleday.appleforge.com
+        run: npx expo export --platform web
 
       - name: Deploy frontend to S3
         run: aws s3 sync frontend/dist "s3://${{ steps.tf.outputs.bucket }}" --delete --exclude "static/*"

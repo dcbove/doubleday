@@ -33,6 +33,11 @@ variable "powertools_layer_arn" {
   type        = string
 }
 
+variable "deps_layer_arn" {
+  description = "ARN of the Lambda Layer containing pip dependencies (PyJWT, cryptography)"
+  type        = string
+}
+
 variable "lambda_package_path" {
   description = "Path to the shared Lambda deployment zip"
   type        = string

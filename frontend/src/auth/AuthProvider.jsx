@@ -1,5 +1,6 @@
 import { createContext, useState, useEffect, useCallback } from "react";
 import { getCurrentUser, signInWithRedirect, signOut, fetchAuthSession } from "aws-amplify/auth";
+import { Hub } from "aws-amplify/utils";
 
 export const AuthContext = createContext(null);
 
@@ -7,23 +8,39 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  async function resolveUser() {
+    try {
+      const cognitoUser = await getCurrentUser();
+      const session = await fetchAuthSession();
+      const claims = session.tokens?.idToken?.payload;
+      setUser({
+        ...cognitoUser,
+        name: claims?.name || claims?.email || cognitoUser.username,
+        picture: claims?.picture,
+      });
+    } catch {
+      setUser(null);
+    }
+  }
+
   useEffect(() => {
-    getCurrentUser()
-      .then(async (cognitoUser) => {
-        const session = await fetchAuthSession();
-        const claims = session.tokens?.idToken?.payload;
-        setUser({
-          ...cognitoUser,
-          name: claims?.name || claims?.email || cognitoUser.username,
-          picture: claims?.picture,
-        });
-      })
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false));
+    resolveUser().finally(() => setLoading(false));
+
+    const unsubscribe = Hub.listen("auth", ({ payload }) => {
+      if (payload.event === "signInWithRedirect") {
+        resolveUser();
+      }
+    });
+    return unsubscribe;
   }, []);
 
-  const login = useCallback(() => {
-    signInWithRedirect({ provider: "Google" });
+  const login = useCallback(async () => {
+    try {
+      await getCurrentUser();
+      await resolveUser();
+    } catch {
+      signInWithRedirect({ provider: "Google" });
+    }
   }, []);
 
   const logout = useCallback(async () => {

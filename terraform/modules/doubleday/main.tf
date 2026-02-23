@@ -31,6 +31,7 @@ module "lambda" {
   lakehouse_bucket_arn  = module.s3.lakehouse_bucket_arn
   lakehouse_bucket_name = module.s3.lakehouse_bucket_name
   powertools_layer_arn  = var.powertools_layer_arn
+  deps_layer_arn        = aws_lambda_layer_version.deps.arn
   lambda_package_path   = data.archive_file.lambda_package.output_path
   lambda_package_hash   = data.archive_file.lambda_package.output_base64sha256
   frontend_bucket_name  = module.frontend.frontend_bucket_name
@@ -58,6 +59,7 @@ module "schedule" {
   lambda_package_path  = data.archive_file.lambda_package.output_path
   lambda_package_hash  = data.archive_file.lambda_package.output_base64sha256
   powertools_layer_arn = var.powertools_layer_arn
+  deps_layer_arn       = aws_lambda_layer_version.deps.arn
 }
 
 module "dashboard" {
@@ -87,6 +89,7 @@ module "api" {
   athena_results_bucket = var.athena_results_bucket
   lakehouse_bucket_arn  = module.s3.lakehouse_bucket_arn
   powertools_layer_arn  = var.powertools_layer_arn
+  deps_layer_arn        = aws_lambda_layer_version.deps.arn
   lambda_package_path   = data.archive_file.lambda_package.output_path
   lambda_package_hash   = data.archive_file.lambda_package.output_base64sha256
   cognito_user_pool_id  = module.cognito.user_pool_id

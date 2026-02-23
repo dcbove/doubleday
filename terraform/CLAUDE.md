@@ -16,16 +16,20 @@ When adding permissions for a new AWS resource type, update `modules/oidc/main.t
 
 ## Lambda Packaging (`modules/doubleday/package.tf`)
 
-A single shared zip (`builds/lambda_package.zip`) is built by the composition module and passed as `lambda_package_path` / `lambda_package_hash` variables to both `module.lambda` (pipeline) and `module.api`. The zip contains:
+Two build artifacts, both in the project root `builds/` directory (gitignored):
 
+**Code zip** (`builds/lambda_package.zip`) — built by `scripts/build_lambda_package.sh`:
 - All Python source (`src/doubleday/**/*.py`)
 - Pipeline SQL templates (`sql/pipeline/*.sql` → `doubleday/sql/pipeline/`)
 - API SQL templates (`sql/api/*.sql` → `doubleday/sql/api/`)
+- Rebuilds when source or SQL files change (fast — no network, just file copies)
+
+**Deps layer** (`builds/lambda_layer.zip`) — built by `scripts/build_lambda_layer.sh`:
 - Pip dependencies (PyJWT, cryptography) built for `manylinux2014_x86_64`
+- Published as `aws_lambda_layer_version.deps` and attached to all Lambda functions
+- Rebuilds only when `pyproject.toml` changes (rare)
 
-The build uses `null_resource` provisioners because cryptography has binary `.so` files that require platform-specific pip install. Triggers ensure rebuilds happen when source, SQL, or dependency lists change.
-
-All build artifacts go in the project root `builds/` directory (gitignored).
+The code zip is passed as `lambda_package_path` / `lambda_package_hash` variables to `module.lambda` (pipeline), `module.api`, and `module.schedule`. The layer ARN is passed as `deps_layer_arn`.
 
 ## API Module: Self-Contained Endpoints (`modules/api/`)
 
