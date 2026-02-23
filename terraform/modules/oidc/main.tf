@@ -100,6 +100,7 @@ resource "aws_iam_role_policy" "terraform_managed_resources" {
           "s3:PutBucketPolicy",
           "s3:DeleteBucketPolicy",
           "s3:PutBucketPublicAccessBlock",
+          "s3:PutBucketCors",
           "s3:PutBucketTagging",
           "s3:PutEncryptionConfiguration",
         ]
@@ -178,8 +179,10 @@ resource "aws_iam_role_policy" "terraform_managed_resources" {
         Effect = "Allow"
         Action = [
           "lambda:GetLayerVersion",
+          "lambda:PublishLayerVersion",
+          "lambda:DeleteLayerVersion",
         ]
-        Resource = "*"
+        Resource = "arn:aws:lambda:${var.region}:${data.aws_caller_identity.current.account_id}:layer:${var.project}-*"
       },
       {
         Sid    = "StepFunctions"
