@@ -28,7 +28,7 @@ data "archive_file" "lambda_package" {
 
 resource "null_resource" "lambda_layer_build" {
   triggers = {
-    deps_hash = filemd5("${local.project_root}/pyproject.toml")
+    script_hash = filemd5("${local.project_root}/scripts/build_lambda_layer.sh")
   }
 
   provisioner "local-exec" {
