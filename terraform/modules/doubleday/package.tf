@@ -37,16 +37,10 @@ resource "null_resource" "lambda_layer_build" {
   }
 }
 
-data "archive_file" "lambda_layer" {
-  type        = "zip"
-  source_dir  = "${local.project_root}/builds/lambda_layer"
-  output_path = "${local.project_root}/builds/lambda_layer.zip"
-  depends_on  = [null_resource.lambda_layer_build]
-}
-
 resource "aws_lambda_layer_version" "deps" {
   layer_name          = "${var.project}-${var.environment}-deps"
-  filename            = data.archive_file.lambda_layer.output_path
-  source_code_hash    = data.archive_file.lambda_layer.output_base64sha256
+  filename            = "${local.project_root}/builds/lambda_layer.zip"
+  source_code_hash    = filebase64sha256("${local.project_root}/scripts/build_lambda_layer.sh")
   compatible_runtimes = ["python3.12"]
+  depends_on          = [null_resource.lambda_layer_build]
 }

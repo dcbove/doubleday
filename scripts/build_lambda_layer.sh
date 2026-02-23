@@ -17,3 +17,6 @@ pip install PyJWT==2.11.0 cryptography==46.0.5 \
   --only-binary=:all: \
   --python-version 3.12 \
   --quiet
+
+cd builds/lambda_layer
+zip -r -q ../lambda_layer.zip python/
