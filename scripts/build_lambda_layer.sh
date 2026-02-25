@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build the Lambda Layer package containing pip dependencies (PyJWT, cryptography).
 # Separated from the code package so dependency changes (rare) don't slow down
-# every source-code deploy.
+# every source-code deploy!
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
