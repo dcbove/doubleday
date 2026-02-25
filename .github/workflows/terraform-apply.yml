@@ -9,6 +9,7 @@ on:
       - "src/**"
       - "sql/**"
       - "frontend/**"
+      - "scripts/**"
 
 permissions:
   id-token: write

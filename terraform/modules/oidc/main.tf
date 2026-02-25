@@ -156,14 +156,22 @@ resource "aws_iam_role_policy" "terraform_managed_resources" {
         ]
       },
       {
+        Sid    = "LambdaGet"
+        Effect = "Allow"
+        Action = [
+          "lambda:GetFunction",
+          "lambda:GetFunctionCodeSigningConfig",
+          "lambda:GetPolicy",
+          "lambda:GetLayerVersion",
+        ]
+        Resource = "*"
+      },
+      {
         Sid    = "Lambda"
         Effect = "Allow"
         Action = [
           "lambda:CreateFunction",
           "lambda:DeleteFunction",
-          "lambda:GetFunction",
-          "lambda:GetFunctionCodeSigningConfig",
-          "lambda:GetPolicy",
           "lambda:ListVersionsByFunction",
           "lambda:UpdateFunctionCode",
           "lambda:UpdateFunctionConfiguration",
@@ -178,7 +186,6 @@ resource "aws_iam_role_policy" "terraform_managed_resources" {
         Sid    = "LambdaLayer"
         Effect = "Allow"
         Action = [
-          "lambda:GetLayerVersion",
           "lambda:PublishLayerVersion",
           "lambda:DeleteLayerVersion",
         ]
