@@ -1,17 +1,15 @@
 """Unit tests for the query_pitches API query (doubleday.api.query_pitches.query).
 
-The query_pitches module reads a SQL template, formats it with pitcher ID and
-season, executes it against Athena, and returns a QueryResult dataclass with
-typed pitch-shape statistics (movement, velocity, spin, usage).
+The query_pitches module queries the DynamoDB serving table by pitcher+season
+and returns a QueryResult dataclass with typed pitch-shape statistics.
 
-These tests mock the Athena client and verify: SQL template loading and
-formatting, pitch_type filter appending, Athena string-to-Python type coercion,
-empty result handling, and error propagation.
+These tests mock the DynamoDB Table resource and verify: PK/SK construction,
+pitch_type filter handling, DynamoDB Decimal-to-native coercion, empty result
+handling, and pagination.
 """
 
-from unittest.mock import MagicMock, patch
-
-import pytest
+from decimal import Decimal
+from unittest.mock import MagicMock
 
 from doubleday.api.query_pitches.query import QueryResult, query_pitches
 
@@ -19,51 +17,42 @@ from doubleday.api.query_pitches.query import QueryResult, query_pitches
 class TestQueryPitches:
     """Tests for the query_pitches function.
 
-    Uses a tmp_path fixture to create a minimal SQL template on disk, and mocks
-    run_query / get_query_results to simulate Athena responses without making
+    Mocks a DynamoDB Table resource to simulate query responses without making
     real AWS calls.
     """
 
-    @pytest.fixture()
-    def sql_dir(self, tmp_path):
-        """Create minimal SQL template for testing."""
-        api_dir = tmp_path / "api"
-        api_dir.mkdir()
-        (api_dir / "query_pitches.sql").write_text(
-            "SELECT * FROM gold_pitches_shape_season" " WHERE pitcher = {pitcher} AND season = {season}"
-        )
-        return tmp_path
-
-    @patch("doubleday.api.query_pitches.query.get_query_results")
-    @patch("doubleday.api.query_pitches.query.run_query")
-    def test_returns_query_result_with_pitches(self, mock_run, mock_results, sql_dir):
+    def test_returns_query_result_with_pitches(self):
         """Basic query returns QueryResult with typed pitch data."""
-        mock_run.return_value = "exec-1"
-        mock_results.return_value = [
-            {
-                "pitcher": "605151",
-                "pitch_type": "FF",
-                "avg_horz_break_in": "-5.2",
-                "avg_vert_break_in": "14.3",
-                "stddev_horz_break_in": "1.1",
-                "stddev_vert_break_in": "0.8",
-                "p10_horz_break_in": "-6.5",
-                "p90_horz_break_in": "-3.9",
-                "p10_vert_break_in": "13.1",
-                "p90_vert_break_in": "15.5",
-                "avg_velocity": "96.5",
-                "p10_velocity": "94.2",
-                "p90_velocity": "98.8",
-                "avg_adj_velocity": "97.0",
-                "avg_spin_rate": "2350.0",
-                "pitch_count": "800",
-                "usage_rate": "0.45",
-                "season": "2024",
-            }
-        ]
-        client = MagicMock()
+        table = MagicMock()
+        table.query.return_value = {
+            "Items": [
+                {
+                    "PK": "PITCHER#605151#SEASON#2024",
+                    "SK": "PITCH#FF",
+                    "entity_type": "pitch",
+                    "pitcher": Decimal("605151"),
+                    "pitch_type": "FF",
+                    "avg_horz_break_in": Decimal("-5.2"),
+                    "avg_vert_break_in": Decimal("14.3"),
+                    "stddev_horz_break_in": Decimal("1.1"),
+                    "stddev_vert_break_in": Decimal("0.8"),
+                    "p10_horz_break_in": Decimal("-6.5"),
+                    "p90_horz_break_in": Decimal("-3.9"),
+                    "p10_vert_break_in": Decimal("13.1"),
+                    "p90_vert_break_in": Decimal("15.5"),
+                    "avg_velocity": Decimal("96.5"),
+                    "p10_velocity": Decimal("94.2"),
+                    "p90_velocity": Decimal("98.8"),
+                    "avg_adj_velocity": Decimal("97.0"),
+                    "avg_spin_rate": Decimal("2350"),
+                    "pitch_count": Decimal("800"),
+                    "usage_rate": Decimal("0.45"),
+                    "season": Decimal("2024"),
+                }
+            ]
+        }
 
-        result = query_pitches(client, "my_db", "bucket", sql_dir, 605151, 2024)
+        result = query_pitches(table, 605151, 2024)
 
         assert isinstance(result, QueryResult)
         assert result.pitcher == 605151
@@ -73,37 +62,37 @@ class TestQueryPitches:
         assert result.pitches[0]["avg_velocity"] == 96.5
         assert result.pitches[0]["pitch_count"] == 800
         assert result.pitches[0]["pitch_type"] == "FF"
+        assert "PK" not in result.pitches[0]
+        assert "SK" not in result.pitches[0]
+        assert "entity_type" not in result.pitches[0]
 
-    @patch("doubleday.api.query_pitches.query.get_query_results")
-    @patch("doubleday.api.query_pitches.query.run_query")
-    def test_pitch_type_filter_appends_where_clause(self, mock_run, mock_results, sql_dir):
-        """Optional pitch_type filter adds AND clause to SQL."""
-        mock_run.return_value = "exec-1"
-        mock_results.return_value = []
-        client = MagicMock()
+    def test_pitch_type_filter_uses_exact_sk(self):
+        """Optional pitch_type filter queries with exact SK."""
+        table = MagicMock()
+        table.query.return_value = {"Items": []}
 
-        query_pitches(client, "my_db", "bucket", sql_dir, 605151, 2024, pitch_type="SL")
+        query_pitches(table, 605151, 2024, pitch_type="SL")
 
-        sql_arg = mock_run.call_args.args[1]
-        assert "pitch_type = 'SL'" in sql_arg
+        call_kwargs = table.query.call_args.kwargs
+        assert call_kwargs["ExpressionAttributeValues"][":sk"] == "PITCH#SL"
+        assert call_kwargs["ExpressionAttributeValues"][":pk"] == "PITCHER#605151#SEASON#2024"
 
-    @patch("doubleday.api.query_pitches.query.get_query_results")
-    @patch("doubleday.api.query_pitches.query.run_query")
-    def test_empty_results_returns_empty_pitches(self, mock_run, mock_results, sql_dir):
-        """Empty Athena result returns QueryResult with empty pitches list."""
-        mock_run.return_value = "exec-1"
-        mock_results.return_value = []
-        client = MagicMock()
+    def test_no_pitch_type_uses_begins_with(self):
+        """No pitch_type filter queries with begins_with on SK prefix."""
+        table = MagicMock()
+        table.query.return_value = {"Items": []}
 
-        result = query_pitches(client, "my_db", "bucket", sql_dir, 605151, 2024)
+        query_pitches(table, 605151, 2024)
+
+        call_kwargs = table.query.call_args.kwargs
+        assert ":sk_prefix" in call_kwargs["ExpressionAttributeValues"]
+        assert call_kwargs["ExpressionAttributeValues"][":sk_prefix"] == "PITCH#"
+
+    def test_empty_results_returns_empty_pitches(self):
+        """Empty DynamoDB result returns QueryResult with empty pitches list."""
+        table = MagicMock()
+        table.query.return_value = {"Items": []}
+
+        result = query_pitches(table, 605151, 2024)
 
         assert result.pitches == []
-
-    @patch("doubleday.api.query_pitches.query.run_query")
-    def test_athena_failure_propagates(self, mock_run, sql_dir):
-        """Athena query failure propagates RuntimeError."""
-        mock_run.side_effect = RuntimeError("Query FAILED: access denied")
-        client = MagicMock()
-
-        with pytest.raises(RuntimeError, match="access denied"):
-            query_pitches(client, "my_db", "bucket", sql_dir, 605151, 2024)

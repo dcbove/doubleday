@@ -25,6 +25,9 @@ echo "Starting backfill for ${YEAR} (${#dates[@]} dates) on doubleday-${ENV}-pip
 
 arn="arn:aws:states:us-east-1:$(aws sts get-caller-identity --query Account --output text):stateMachine:doubleday-${ENV}-pipeline"
 
+execution_name="backfill-${YEAR}-$(date +%Y%m%dT%H%M%S)-$(uuidgen | head -c 8)"
+
 aws stepfunctions start-execution \
   --state-machine-arn "$arn" \
+  --name "$execution_name" \
   --input "$input"

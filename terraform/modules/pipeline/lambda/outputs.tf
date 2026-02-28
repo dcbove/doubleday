@@ -67,3 +67,13 @@ output "catalog_build_function_arn" {
   description = "ARN of the catalog build Lambda function"
   value       = aws_lambda_function.catalog_build.arn
 }
+
+output "dynamodb_load_function_name" {
+  description = "Name of the DynamoDB load Lambda function"
+  value       = aws_lambda_function.dynamodb_load.function_name
+}
+
+output "dynamodb_load_function_arn" {
+  description = "ARN of the DynamoDB load Lambda function"
+  value       = aws_lambda_function.dynamodb_load.arn
+}

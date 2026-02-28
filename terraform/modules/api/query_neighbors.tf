@@ -106,45 +106,10 @@ resource "aws_iam_role_policy" "query_neighbors" {
       {
         Effect = "Allow"
         Action = [
-          "athena:StartQueryExecution",
-          "athena:GetQueryExecution",
-          "athena:GetQueryResults",
+          "dynamodb:Query",
+          "dynamodb:GetItem",
         ]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "glue:GetDatabase",
-          "glue:GetTable",
-          "glue:GetPartitions",
-        ]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:GetBucketLocation",
-          "s3:ListBucket",
-        ]
-        Resource = [
-          var.lakehouse_bucket_arn,
-          "${var.lakehouse_bucket_arn}/*",
-        ]
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:PutObject",
-          "s3:GetBucketLocation",
-          "s3:ListBucket",
-        ]
-        Resource = [
-          "arn:aws:s3:::${var.athena_results_bucket}",
-          "arn:aws:s3:::${var.athena_results_bucket}/*",
-        ]
+        Resource = var.dynamodb_table_arn
       },
       {
         Effect = "Allow"
@@ -179,8 +144,7 @@ resource "aws_lambda_function" "query_neighbors" {
 
   environment {
     variables = {
-      GLUE_DATABASE                = var.glue_database
-      ATHENA_OUTPUT_BUCKET         = var.athena_results_bucket
+      DYNAMODB_TABLE_NAME          = var.dynamodb_table_name
       POWERTOOLS_METRICS_NAMESPACE = "Doubleday"
       POWERTOOLS_SERVICE_NAME      = "api_query_neighbors"
     }

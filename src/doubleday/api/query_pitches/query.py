@@ -1,32 +1,8 @@
-"""Query pitches — Athena query and result formatting."""
+"""Query pitches — DynamoDB query and result formatting."""
 
 from dataclasses import dataclass, field
-from pathlib import Path
 
-from doubleday.util.athena import get_query_results, run_query
-
-INT_COLUMNS = {"pitcher", "pitch_count", "season"}
-FLOAT_COLUMNS = {
-    "avg_horz_break_in",
-    "avg_vert_break_in",
-    "stddev_horz_break_in",
-    "stddev_vert_break_in",
-    "p10_horz_break_in",
-    "p90_horz_break_in",
-    "p10_vert_break_in",
-    "p90_vert_break_in",
-    "avg_velocity",
-    "p10_velocity",
-    "p90_velocity",
-    "avg_adj_velocity",
-    "avg_spin_rate",
-    "usage_rate",
-}
-
-
-def load_sql(sql_dir: Path, filename: str) -> str:
-    """Read a SQL template from the given directory."""
-    return (sql_dir / filename).read_text()
+from doubleday.util.dynamodb import query_items
 
 
 @dataclass
@@ -38,49 +14,28 @@ class QueryResult:
     pitches: list[dict] = field(default_factory=list)
 
 
-def _coerce_row(row: dict[str, str]) -> dict:
-    """Coerce Athena string values to typed Python values."""
-    typed: dict = {}
-    for key, value in row.items():
-        if key in INT_COLUMNS:
-            typed[key] = int(value)
-        elif key in FLOAT_COLUMNS:
-            typed[key] = float(value)
-        else:
-            typed[key] = value
-    return typed
-
-
 def query_pitches(
-    client,
-    database: str,
-    output_bucket: str,
-    sql_dir: Path,
+    table,
     pitcher: int,
     season: int,
     pitch_type: str | None = None,
 ) -> QueryResult:
-    """Query pitcher pitch-shape stats from the gold table.
+    """Query pitcher pitch-shape stats from the DynamoDB serving table.
 
     Args:
-        client: Boto3 Athena client.
-        database: Glue catalog database name.
-        output_bucket: S3 bucket for Athena query results.
-        sql_dir: Path to the SQL template directory.
+        table: Boto3 DynamoDB Table resource.
         pitcher: The pitcher's MLB ID.
         season: The season year.
-        pitch_type: Optional pitch type filter (e.g. 'FF', 'SL').
+        pitch_type: Optional pitch type filter (e.g. ``'FF'``, ``'SL'``).
 
     Returns:
         QueryResult with pitcher, season, and list of pitch-shape dicts.
     """
-    sql = load_sql(sql_dir, "api/query_pitches.sql").format(pitcher=pitcher, season=season)
+    pk = f"PITCHER#{pitcher}#SEASON#{season}"
 
     if pitch_type is not None:
-        sql += f"\n  AND pitch_type = '{pitch_type}'"
-
-    execution_id = run_query(client, sql, database, output_bucket)
-    rows = get_query_results(client, execution_id)
-    pitches = [_coerce_row(row) for row in rows]
+        pitches = query_items(table, pk, sk_prefix="PITCH#", sk_exact=f"PITCH#{pitch_type}")
+    else:
+        pitches = query_items(table, pk, sk_prefix="PITCH#")
 
     return QueryResult(pitcher=pitcher, season=season, pitches=pitches)

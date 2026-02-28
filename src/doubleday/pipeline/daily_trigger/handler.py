@@ -42,8 +42,11 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         extra={"game_date": game_date, "season": season},
     )
 
+    execution_name = f"daily-{game_date}-{now.strftime('%H%M%S')}"
+
     response = sfn.start_execution(
         stateMachineArn=STATE_MACHINE_ARN,
+        name=execution_name,
         input=sfn_input,
     )
 

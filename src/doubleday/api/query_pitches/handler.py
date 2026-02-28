@@ -3,23 +3,19 @@
 import json
 import os
 from dataclasses import asdict
-from pathlib import Path
 from typing import Any
 
 import boto3
 from aws_lambda_powertools import Logger, Metrics
 from aws_lambda_powertools.metrics import MetricUnit
 
-import doubleday
 from doubleday.api.query_pitches.query import query_pitches
 
-athena = boto3.client("athena")
+dynamodb = boto3.resource("dynamodb")
 logger = Logger()
 metrics = Metrics()
 
-DATABASE = os.environ["GLUE_DATABASE"]
-OUTPUT_BUCKET = os.environ["ATHENA_OUTPUT_BUCKET"]
-SQL_DIR = Path(doubleday.__file__).parent / "sql"
+TABLE_NAME = os.environ["DYNAMODB_TABLE_NAME"]
 
 CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
@@ -67,7 +63,8 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     metrics.add_dimension(name="pitcher", value=str(pitcher_id))
     metrics.add_dimension(name="season", value=str(season))
 
-    result = query_pitches(athena, DATABASE, OUTPUT_BUCKET, SQL_DIR, pitcher_id, season, pitch_type)
+    table = dynamodb.Table(TABLE_NAME)
+    result = query_pitches(table, pitcher_id, season, pitch_type)
 
     metrics.add_metric(name="PitchTypesReturned", unit=MetricUnit.Count, value=len(result.pitches))
 

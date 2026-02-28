@@ -33,6 +33,7 @@ resource "aws_iam_role_policy" "pipeline" {
           var.clear_staging_function_arn,
           var.check_failures_function_arn,
           var.catalog_build_function_arn,
+          var.dynamodb_load_function_arn,
         ]
       },
       {
@@ -167,6 +168,14 @@ resource "aws_sfn_state_machine" "pipeline" {
             "batch_id.$" = "$.batch_id"
           }
         }
+        Retry = [
+          {
+            ErrorEquals     = ["States.ALL"]
+            IntervalSeconds = 60
+            MaxAttempts     = 3
+            BackoffRate     = 2.0
+          }
+        ]
         ResultPath = null
         Next       = "GoldLoadShapeSeason"
       }
@@ -213,6 +222,50 @@ resource "aws_sfn_state_machine" "pipeline" {
             }
           }
         }
+        ResultPath = null
+        Next       = "DynamoDBLoadParallel"
+      }
+
+      DynamoDBLoadParallel = {
+        Type = "Parallel"
+        Branches = [
+          {
+            StartAt = "DynamoDBLoadPitches"
+            States = {
+              DynamoDBLoadPitches = {
+                Type     = "Task"
+                Resource = "arn:aws:states:::lambda:invoke"
+                Parameters = {
+                  FunctionName = var.dynamodb_load_function_arn
+                  Payload = {
+                    "entity_type" = "pitches"
+                    "season.$"    = "$.season"
+                  }
+                }
+                ResultPath = "$.dynamodb_pitches_result"
+                End        = true
+              }
+            }
+          },
+          {
+            StartAt = "DynamoDBLoadNeighbors"
+            States = {
+              DynamoDBLoadNeighbors = {
+                Type     = "Task"
+                Resource = "arn:aws:states:::lambda:invoke"
+                Parameters = {
+                  FunctionName = var.dynamodb_load_function_arn
+                  Payload = {
+                    "entity_type" = "neighbors"
+                    "season.$"    = "$.season"
+                  }
+                }
+                ResultPath = "$.dynamodb_neighbors_result"
+                End        = true
+              }
+            }
+          }
+        ]
         ResultPath = null
         Next       = "SetCatalogRoles"
       }

@@ -75,11 +75,6 @@ class TestSqlContracts:
         path = SQL_DIR / "pipeline" / "silver_clear_partition_from_staging_table.sql"
         assert path.exists(), f"clear_staging references SQL file but {path} does not exist"
 
-    def test_query_pitches_file_exists(self) -> None:
-        """The query_pitches API SQL reference must exist."""
-        path = SQL_DIR / "api" / "query_pitches.sql"
-        assert path.exists(), f"query_pitches references SQL file but {path} does not exist"
-
     def test_no_orphaned_pipeline_sql(self) -> None:
         """Every .sql file in sql/pipeline/ must be referenced by code."""
         referenced = _all_referenced_sql_files()
@@ -87,11 +82,3 @@ class TestSqlContracts:
         on_disk = {f.name for f in (SQL_DIR / "pipeline").glob("*.sql")}
         orphaned = on_disk - pipeline_referenced
         assert not orphaned, f"Orphaned SQL files in sql/pipeline/ not referenced by any code: {orphaned}"
-
-    def test_no_orphaned_api_sql(self) -> None:
-        """Every .sql file in sql/api/ must be referenced by code."""
-        referenced = _all_referenced_sql_files()
-        api_referenced = {f.split("/", 1)[1] for f in referenced if f.startswith("api/")}
-        on_disk = {f.name for f in (SQL_DIR / "api").glob("*.sql")}
-        orphaned = on_disk - api_referenced
-        assert not orphaned, f"Orphaned SQL files in sql/api/ not referenced by any code: {orphaned}"

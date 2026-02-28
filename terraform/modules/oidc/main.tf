@@ -482,6 +482,24 @@ resource "aws_iam_role_policy" "terraform_managed_resources" {
         Resource = "*"
       },
       {
+        Sid    = "DynamoDB"
+        Effect = "Allow"
+        Action = [
+          "dynamodb:CreateTable",
+          "dynamodb:DeleteTable",
+          "dynamodb:DescribeTable",
+          "dynamodb:DescribeContinuousBackups",
+          "dynamodb:DescribeTimeToLive",
+          "dynamodb:ListTagsOfResource",
+          "dynamodb:TagResource",
+          "dynamodb:UntagResource",
+          "dynamodb:UpdateTable",
+          "dynamodb:UpdateContinuousBackups",
+          "dynamodb:UpdateTimeToLive",
+        ]
+        Resource = "arn:aws:dynamodb:${var.region}:${data.aws_caller_identity.current.account_id}:table/${var.project}-*"
+      },
+      {
         Sid    = "Scheduler"
         Effect = "Allow"
         Action = [
