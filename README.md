@@ -352,6 +352,32 @@ s3://doubleday-<env>-lakehouse/gold/
 └── gold_repertoire_shape_neighbors/     # Iceberg data + metadata
 ```
 
+## Data: Serving Layer (DynamoDB)
+
+The serving layer is a DynamoDB single-table (`doubleday-{env}-serving`) populated from gold Iceberg tables. It provides single-digit millisecond reads for the API, replacing Athena queries. Items use composite keys: `PK = PITCHER#{id}#SEASON#{year}`, `SK = PITCH#{type}` or `NEIGHBOR#{rank:03d}`.
+
+The `dynamodb_load` Lambda reads a gold table via Athena, deletes existing items for that entity/season, then batch-writes fresh items.
+
+### Invoking the dynamodb_load Lambda
+
+```bash
+# Load pitches for a season
+aws lambda invoke \
+  --function-name doubleday-dev-dynamodb-load \
+  --payload '{"entity_type": "pitches", "season": 2024}' \
+  --cli-binary-format raw-in-base64-out \
+  /dev/stdout
+
+# Load neighbors for a season
+aws lambda invoke \
+  --function-name doubleday-dev-dynamodb-load \
+  --payload '{"entity_type": "neighbors", "season": 2024}' \
+  --cli-binary-format raw-in-base64-out \
+  /dev/stdout
+```
+
+Both entity types run automatically as a parallel step in the pipeline after gold load completes.
+
 ## Player Catalogs
 
 The catalog build pipeline generates static player catalog artifacts (`catalog.json` and `manifest.json`) for each season and role. These are published to the frontend S3 bucket and served via CloudFront. The SPA fetches the manifest through the authenticated API, then conditionally downloads the catalog blob for local search.

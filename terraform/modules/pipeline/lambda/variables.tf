@@ -57,3 +57,13 @@ variable "frontend_bucket_arn" {
   description = "ARN of the frontend S3 bucket"
   type        = string
 }
+
+variable "dynamodb_table_name" {
+  description = "Name of the DynamoDB serving table"
+  type        = string
+}
+
+variable "dynamodb_table_arn" {
+  description = "ARN of the DynamoDB serving table"
+  type        = string
+}

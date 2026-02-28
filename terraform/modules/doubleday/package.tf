@@ -8,7 +8,6 @@ resource "null_resource" "lambda_package_build" {
   triggers = {
     src_hash      = sha1(join("", [for f in sort(fileset("${local.project_root}/src", "doubleday/**/*.py")) : filemd5("${local.project_root}/src/${f}")]))
     sql_pipe_hash = sha1(join("", [for f in sort(fileset("${local.project_root}/sql/pipeline", "*.sql")) : filemd5("${local.project_root}/sql/pipeline/${f}")]))
-    sql_api_hash  = sha1(join("", [for f in sort(fileset("${local.project_root}/sql/api", "*.sql")) : filemd5("${local.project_root}/sql/api/${f}")]))
   }
 
   provisioner "local-exec" {

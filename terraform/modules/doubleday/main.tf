@@ -22,6 +22,12 @@ module "glue" {
   athena_results_bucket = var.athena_results_bucket
 }
 
+module "dynamodb" {
+  source      = "../pipeline/dynamodb"
+  project     = var.project
+  environment = var.environment
+}
+
 module "lambda" {
   source                = "../pipeline/lambda"
   project               = var.project
@@ -36,6 +42,8 @@ module "lambda" {
   lambda_package_hash   = data.archive_file.lambda_package.output_base64sha256
   frontend_bucket_name  = module.frontend.frontend_bucket_name
   frontend_bucket_arn   = module.frontend.frontend_bucket_arn
+  dynamodb_table_name   = module.dynamodb.table_name
+  dynamodb_table_arn    = module.dynamodb.table_arn
 }
 
 module "step_function" {
@@ -49,6 +57,7 @@ module "step_function" {
   clear_staging_function_arn  = module.lambda.clear_staging_function_arn
   check_failures_function_arn = module.lambda.check_failures_function_arn
   catalog_build_function_arn  = module.lambda.catalog_build_function_arn
+  dynamodb_load_function_arn  = module.lambda.dynamodb_load_function_arn
 }
 
 module "schedule" {
@@ -81,14 +90,13 @@ module "cognito" {
 }
 
 module "api" {
-  source                = "../api"
-  project               = var.project
-  environment           = var.environment
-  region                = var.region
-  glue_database         = module.glue.database_name
-  athena_results_bucket = var.athena_results_bucket
-  lakehouse_bucket_arn  = module.s3.lakehouse_bucket_arn
-  powertools_layer_arn  = var.powertools_layer_arn
+  source              = "../api"
+  project             = var.project
+  environment         = var.environment
+  region              = var.region
+  dynamodb_table_name = module.dynamodb.table_name
+  dynamodb_table_arn  = module.dynamodb.table_arn
+  powertools_layer_arn = var.powertools_layer_arn
   deps_layer_arn        = aws_lambda_layer_version.deps.arn
   lambda_package_path   = data.archive_file.lambda_package.output_path
   lambda_package_hash   = data.archive_file.lambda_package.output_base64sha256
