@@ -1,6 +1,6 @@
 # Operations
 
-Runbook for invoking Lambdas, running scripts, and managing data sources. For project architecture and development setup, see [README.md](README.md).
+Runbook for invoking Lambdas, running scripts, and managing data sources. For project architecture and development setup, see [README.md](../README.md).
 
 ## Bronze Layer
 
