@@ -318,69 +318,7 @@ A Standard Step Function orchestrates the full ETL pipeline:
 10. **CheckFailures** — invoke `check_failures` to scan S3 for failure records from this `batch_id`
 11. **HasFailures** — if any silver loads failed, the execution ends with `SilverLoadPartialFailure`; otherwise succeeds
 
-See [OPERATIONS.md](OPERATIONS.md) for Lambda invocation commands, scripts, and operational runbooks.
-
-### Why partition overwrite (DELETE + INSERT) instead of MERGE
-
-Statcast game data is effectively immutable once finalized. Our ingestion unit is already aligned to a natural partition boundary — `(season, game_date)` for silver, `(season)` for gold — and each load always replaces **every row in the partition** from bronze source. We never partially update a partition (e.g., "update 3 rows out of 4,000") — it's always a full reprocess of the day or season. Given that, MERGE offers no efficiency advantage: it would still read and match every row, only to discover they all need replacing. Meanwhile, MERGE (update matched, insert unmatched) would leave behind rows that disappeared from the source — if Statcast retroactively drops a pitch, MERGE can't detect the absence. DELETE + INSERT is simpler, produces fewer Iceberg commits (2 vs 3+), and guarantees canonical exactly mirrors the source for any reprocessed partition.
-
-### Why Standard over Express Step Functions
-
-Standard Step Functions support executions up to one year and have detailed execution history. This matters for backfills — reprocessing an entire season (180+ game dates) can take well over five minutes, which is the Express maximum. Standard also provides per-step visibility in the console, making debugging straightforward.
-
-### Why a single parameterized gold Lambda
-
-One `gold_load` Lambda accepts a table name parameter and executes the corresponding SQL files (`{table_name}_delete.sql` and `{table_name}_insert.sql`). Adding a new gold table means adding two SQL files and a Step Function entry — no Lambda code changes.
-
-### Why the Step Function is the single entry point
-
-All processing flows through the Step Function. There are no S3 event triggers or independent Lambda invocations in production. This eliminates double-processing, makes the pipeline easy to reason about, and gives a single place to monitor execution status.
-
-## REST API
-
-The API provides authenticated access to gold table data. It uses Cognito for authentication (with Google federation) and API Gateway with a custom Lambda authorizer.
-
-### Endpoint
-
-```
-GET /pitchers/{pitcher_id}/pitches?season={season}&pitch_type={pitch_type}
-```
-
-- `pitcher_id` (path, required): MLB pitcher ID (e.g., `605151`)
-- `season` (query, required): Season year (e.g., `2024`)
-- `pitch_type` (query, optional): Pitch type filter (e.g., `FF`, `SL`)
-
-Returns pitch-shape stats (movement, velocity, spin, usage) from `gold_pitches_shape_season`.
-
-### Domain layout
-
-- `doubleday-<env>.appleforge.com` — CloudFront serves the SPA and proxies `/api/*` to API Gateway. The `x-api-key` header is injected by CloudFront, so browser clients never need it.
-- `api.doubleday-<env>.appleforge.com` — API Gateway directly, for non-browser clients. Requires `x-api-key` header.
-
-### Authentication
-
-1. **Browser**: Sign in via the SPA at `https://doubleday-<env>.appleforge.com` — Cognito OAuth flow with Google federation.
-
-2. **CLI / non-browser**: Include the token and API key:
-   ```bash
-   curl -H "Authorization: Bearer <token>" \
-        -H "x-api-key: <api_key>" \
-        "https://api.doubleday-dev.appleforge.com/pitchers/605151/pitches?season=2024"
-   ```
-
-### Decoding a JWT
-
-To inspect the claims in a JWT token (useful for debugging auth issues):
-
-```bash
-echo "$TOKEN" | cut -d. -f2 | tr '_-' '/+' | awk '{while(length%4)$0=$0"="}1' | base64 -d | python3 -m json.tool
-```
-
-Key claims to look for: `token_use` (`id` or `access`), `aud` (id tokens), `client_id` (access tokens), `iss`, `exp`.
-
-### Rate limiting
-
-Requests require an API key (`x-api-key` header) and are subject to rate limiting (default: 50 req/s steady, 100 req/s burst). Browser requests through CloudFront have the API key injected automatically.
+See [OPERATIONS.md](docs/OPERATIONS.md) for Lambda invocation commands, scripts, and operational runbooks. See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for design rationale (partition overwrite vs MERGE, Standard vs Express Step Functions, etc.).
 
 ## Frontend
 
@@ -424,127 +362,20 @@ Web dev uses the deployed CloudFront backend (`EXPO_PUBLIC_API_URL` and `EXPO_PU
 
 ## Testing
 
-### Unit tests
+See [TESTING.md](docs/TESTING.md) for unit tests, integration tests, and integration test setup.
 
-```bash
-make test
-```
+## REST API
 
-### Integration tests
+See [API.md](docs/API.md) for endpoints, authentication, rate limiting, and OpenAPI spec.
 
-Integration tests run against live AWS resources in the dev environment. They require valid AWS credentials.
+## Operations
 
-```bash
-make test-integration
-```
+See [OPERATIONS.md](docs/OPERATIONS.md) for Lambda invocation commands, scripts, and operational runbooks.
 
-There are three flavors of API integration test:
+## iOS Release
 
-| Test file | What it exercises | Auth? |
-|---|---|---|
-| `test_query_pitches_synthetic.py` | Lambda handler directly with synthetic events | No |
-| `test_query_pitches_gateway.py` | API Gateway routing via `test-invoke-method` | No (bypassed) |
-| `test_query_pitches_auth.py` | Full HTTPS request with Cognito JWT + API key | Yes |
+See [RELEASE.md](docs/RELEASE.md) for building and distributing iOS releases (device testing, TestFlight, App Store).
 
-The auth tests (`test_query_pitches_auth.py`) require a test Cognito user and credentials stored in Secrets Manager. See [Integration test setup](#integration-test-setup) for details.
+## Infrastructure & Deployment
 
-Pipeline integration tests (`test_silver_pitches_load.py`) clear the test partition (`season=2024/game_date=2024-03-01`) from both staging and canonical before running, so they are safe to re-run.
-
-### Integration test setup
-
-The auth integration tests authenticate against a dedicated Cognito test client using `USER_PASSWORD_AUTH`. This requires one-time manual setup after deploying the test client with Terraform:
-
-1. **Deploy the test client** — `terraform apply` in dev (the composition module sets `enable_test_client = true`)
-
-2. **Get IDs from Terraform outputs:**
-   ```bash
-   USER_POOL_ID=$(cd terraform/environments/dev && terraform output -raw cognito_user_pool_id)
-   TEST_CLIENT_ID=$(cd terraform/environments/dev && terraform output -raw cognito_test_client_id)
-   API_KEY=$(cd terraform/environments/dev && terraform output -raw api_key)
-   ```
-
-3. **Create the test user:**
-   ```bash
-   aws cognito-idp admin-create-user \
-     --user-pool-id "$USER_POOL_ID" \
-     --username "integration-test@doubleday.dev" \
-     --user-attributes Name=email,Value=integration-test@doubleday.dev Name=email_verified,Value=true \
-     --message-action SUPPRESS
-
-   aws cognito-idp admin-set-user-password \
-     --user-pool-id "$USER_POOL_ID" \
-     --username "integration-test@doubleday.dev" \
-     --password "<your-chosen-password>" \
-     --permanent
-   ```
-
-4. **Create the Secrets Manager secret:**
-   ```bash
-   aws secretsmanager create-secret \
-     --name "dev/doubleday/cognito_identity_provider/integration_test_credentials" \
-     --secret-string '{
-       "user_pool_id": "'"$USER_POOL_ID"'",
-       "test_client_id": "'"$TEST_CLIENT_ID"'",
-       "test_email": "integration-test@doubleday.dev",
-       "test_password": "<your-chosen-password>",
-       "api_key": "'"$API_KEY"'",
-       "api_url": "https://api.doubleday-dev.appleforge.com"
-     }'
-   ```
-
-The test client is only created in dev (`enable_test_client = true`). Prod defaults to `false` — no test client, no change.
-
-## Infrastructure
-
-Infrastructure is managed with Terraform with two environments (dev, prod) in the same AWS account.
-
-```bash
-cd terraform/environments/dev   # or prod
-terraform init
-terraform plan
-terraform apply
-```
-
-### Modules
-
-| Module | Description |
-|--------|-------------|
-| `doubleday` | Composition module — wires all child modules, builds the shared Lambda zip |
-| `pipeline/s3` | Lakehouse S3 bucket |
-| `pipeline/glue` | Glue database, bronze/silver/gold table DDL |
-| `pipeline/lambda` | Pipeline Lambda functions (validate_input, bronze_load, silver_load, gold_load, clear_staging), IAM roles |
-| `pipeline/step_function` | Pipeline Step Function, IAM role, CloudWatch logging |
-| `cognito` | Cognito user pool with Google federation, hosted UI |
-| `api` | API Gateway REST API, authorizer Lambda, query Lambda, custom domain, rate limiting |
-| `frontend` | S3 bucket (OAC), CloudFront distribution, CF Function, ACM cert, Route53 |
-| `oidc` | GitHub Actions OIDC provider and IAM role (dev only, account-level) |
-
-Environment files (`dev/main.tf`, `prod/main.tf`) call `module "doubleday"` and pass variables — they never reference child modules directly. All inter-module wiring lives in the composition module.
-
-All Lambda functions (pipeline and API) share a code zip built by the composition module (`doubleday/package.tf`). It bundles the full `doubleday` Python package from `src/` and SQL templates from `sql/pipeline/` and `sql/api/`. Pip dependencies (PyJWT, cryptography) are in a separate Lambda Layer that only rebuilds when dependencies change. Each Lambda points at the same code zip with a different handler entry point.
-
-Each API endpoint is a self-contained `.tf` file in the `api` module containing its Lambda function, IAM role, API Gateway resources, and CORS configuration.
-
-## Deployment
-
-Infrastructure changes are deployed automatically via GitHub Actions using OIDC for AWS authentication (no long-lived credentials).
-
-### CI/CD workflows
-
-- **`terraform-plan.yml`** — runs on PRs that touch `terraform/`, `src/`, `sql/`, or `frontend/`. Applies dev (infra + frontend build/deploy) and plans prod (posting the plan as a PR comment).
-- **`terraform-apply.yml`** — runs on push to `main` that touches `terraform/`, `src/`, `sql/`, or `frontend/`. Applies prod and deploys the frontend.
-
-Dev is deployed during the PR lifecycle so changes can be tested before merging. Prod is deployed only after merging to `main`.
-
-After Terraform apply, the CI pipeline builds the frontend (`npx expo export --platform web` with `EXPO_PUBLIC_*` env vars from Terraform outputs), syncs the dist to S3, and invalidates the CloudFront cache.
-
-### Bootstrap (one-time setup)
-
-The OIDC resources must exist before GitHub Actions can authenticate. To bootstrap:
-
-1. `cd terraform/environments/dev && terraform apply` — creates the OIDC provider and IAM role
-2. `cd terraform/environments/prod && terraform apply` — creates prod resources
-3. Copy the OIDC role ARN from the `module.oidc.role_arn` output
-4. Add it as the GitHub Actions secret `AWS_ROLE_ARN`
-
-After bootstrap, PRs auto-deploy dev and merges to `main` auto-deploy prod.
+See [INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) for Terraform modules, CI/CD workflows, and bootstrap setup.

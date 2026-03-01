@@ -1,0 +1,271 @@
+openapi: 3.0.3
+info:
+  title: Doubleday API
+  description: Pitch-shape analytics for MLB pitchers, sourced from Baseball Savant Statcast data.
+  version: 1.0.0
+
+servers:
+  - url: https://api.doubleday-dev.appleforge.com
+    description: Dev (direct API Gateway)
+  - url: https://doubleday-dev.appleforge.com/api
+    description: Dev (CloudFront proxy)
+  - url: https://api.doubleday-prod.appleforge.com
+    description: Prod (direct API Gateway)
+  - url: https://doubleday-prod.appleforge.com/api
+    description: Prod (CloudFront proxy)
+
+security:
+  - bearerAuth: []
+    apiKey: []
+
+paths:
+  /pitchers/{pitcher_id}/pitches:
+    get:
+      summary: Query pitch-shape stats
+      description: >
+        Returns per-pitch-type season aggregations including movement, velocity,
+        spin, and usage metrics for a pitcher.
+      operationId: queryPitches
+      parameters:
+        - name: pitcher_id
+          in: path
+          required: true
+          description: MLB pitcher ID
+          schema:
+            type: integer
+            example: 605151
+        - name: season
+          in: query
+          required: true
+          description: Season year
+          schema:
+            type: integer
+            example: 2024
+        - name: pitch_type
+          in: query
+          required: false
+          description: Pitch type code filter
+          schema:
+            type: string
+            example: FF
+      responses:
+        "200":
+          description: Pitch-shape stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PitchesResponse"
+        "400":
+          description: Invalid or missing parameters
+
+  /pitchers/{pitcher_id}/neighbors:
+    get:
+      summary: Query shape-similarity neighbors
+      description: >
+        Returns the top-N most similar pitcher-season profiles based on
+        repertoire shape similarity scoring.
+      operationId: queryNeighbors
+      parameters:
+        - name: pitcher_id
+          in: path
+          required: true
+          description: MLB pitcher ID
+          schema:
+            type: integer
+            example: 605151
+        - name: season
+          in: query
+          required: true
+          description: Season year
+          schema:
+            type: integer
+            example: 2024
+      responses:
+        "200":
+          description: Shape-similarity neighbors
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NeighborsResponse"
+        "400":
+          description: Invalid or missing parameters
+
+  /catalogs/{role}:
+    get:
+      summary: Get catalog manifest
+      description: >
+        Returns the catalog manifest for a player role and season, including
+        the S3 blob key and etag for conditional fetching.
+      operationId: getCatalog
+      parameters:
+        - name: role
+          in: path
+          required: true
+          description: Player role
+          schema:
+            type: string
+            enum: [pitchers, batters]
+        - name: season
+          in: query
+          required: true
+          description: Season year
+          schema:
+            type: integer
+            example: 2024
+      responses:
+        "200":
+          description: Catalog manifest
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogResponse"
+        "400":
+          description: Invalid or missing parameters
+        "404":
+          description: No catalog found for the given role and season
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Cognito JWT token (id or access token)
+    apiKey:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: API key (injected by CloudFront for browser clients)
+
+  schemas:
+    PitchesResponse:
+      type: object
+      required: [pitcher, season, pitches]
+      properties:
+        pitcher:
+          type: integer
+          description: MLB pitcher ID
+        season:
+          type: integer
+          description: Season year
+        pitches:
+          type: array
+          items:
+            $ref: "#/components/schemas/PitchShape"
+
+    PitchShape:
+      type: object
+      properties:
+        pitch_type:
+          type: string
+          description: Pitch type code (e.g., FF, SL, CU)
+        avg_velocity:
+          type: number
+          format: float
+          description: Average velocity (mph)
+        p10_velocity:
+          type: number
+          format: float
+          description: 10th percentile velocity
+        p90_velocity:
+          type: number
+          format: float
+          description: 90th percentile velocity
+        avg_adj_velocity:
+          type: number
+          format: float
+          description: Adjusted average velocity
+        avg_horz_break_in:
+          type: number
+          format: float
+          description: Average horizontal break (inches)
+        avg_vert_break_in:
+          type: number
+          format: float
+          description: Average vertical break (inches)
+        stddev_horz_break_in:
+          type: number
+          format: float
+          description: Std dev of horizontal break
+        stddev_vert_break_in:
+          type: number
+          format: float
+          description: Std dev of vertical break
+        p10_horz_break_in:
+          type: number
+          format: float
+          description: 10th percentile horizontal break
+        p90_horz_break_in:
+          type: number
+          format: float
+          description: 90th percentile horizontal break
+        p10_vert_break_in:
+          type: number
+          format: float
+          description: 10th percentile vertical break
+        p90_vert_break_in:
+          type: number
+          format: float
+          description: 90th percentile vertical break
+        avg_spin_rate:
+          type: number
+          format: float
+          description: Average spin rate (RPM)
+        pitch_count:
+          type: integer
+          description: Total pitches thrown
+        usage_rate:
+          type: number
+          format: float
+          description: Usage rate (0.0–1.0)
+
+    NeighborsResponse:
+      type: object
+      required: [pitcher, season, neighbors]
+      properties:
+        pitcher:
+          type: integer
+          description: MLB pitcher ID
+        season:
+          type: integer
+          description: Season year
+        neighbors:
+          type: array
+          items:
+            $ref: "#/components/schemas/Neighbor"
+
+    Neighbor:
+      type: object
+      properties:
+        neighbor_pitcher:
+          type: integer
+          description: Neighbor pitcher MLB ID
+        neighbor_season:
+          type: integer
+          description: Neighbor pitcher season
+        similarity_score:
+          type: number
+          format: float
+          description: Similarity score (0.0–1.0)
+        rank:
+          type: integer
+          description: Rank among neighbors (1-based)
+
+    CatalogResponse:
+      type: object
+      required: [manifest]
+      properties:
+        manifest:
+          type: object
+          description: Catalog manifest metadata
+          properties:
+            season:
+              type: integer
+            role:
+              type: string
+            blob_key:
+              type: string
+              description: S3 key for the full catalog blob
+            etag:
+              type: string
+              description: ETag for conditional fetching
