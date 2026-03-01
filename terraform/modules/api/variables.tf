@@ -13,12 +13,12 @@ variable "region" {
   type        = string
 }
 
-variable "dynamodb_table_name" {
+variable "serving_table_name" {
   description = "Name of the DynamoDB serving table"
   type        = string
 }
 
-variable "dynamodb_table_arn" {
+variable "serving_table_arn" {
   description = "ARN of the DynamoDB serving table"
   type        = string
 }
@@ -88,4 +88,26 @@ variable "burst_limit" {
   description = "Burst request rate limit"
   type        = number
   default     = 100
+}
+
+variable "stripe_secret_key" {
+  description = "Stripe secret API key"
+  type        = string
+  sensitive   = true
+}
+
+variable "stripe_webhook_secret" {
+  description = "Stripe webhook signing secret"
+  type        = string
+  sensitive   = true
+}
+
+variable "stripe_price_id" {
+  description = "Stripe Price ID for the subscription plan"
+  type        = string
+}
+
+variable "frontend_url" {
+  description = "Frontend URL for Stripe redirect URLs (e.g. https://doubleday-dev.appleforge.com)"
+  type        = string
 }

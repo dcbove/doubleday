@@ -58,12 +58,12 @@ variable "frontend_bucket_arn" {
   type        = string
 }
 
-variable "dynamodb_table_name" {
+variable "serving_table_name" {
   description = "Name of the DynamoDB serving table"
   type        = string
 }
 
-variable "dynamodb_table_arn" {
+variable "serving_table_arn" {
   description = "ARN of the DynamoDB serving table"
   type        = string
 }

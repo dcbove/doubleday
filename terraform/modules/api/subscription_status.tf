@@ -1,45 +1,45 @@
 # --- API Gateway resource tree ---
 
-# /pitchers/{pitcher_id}/neighbors
-resource "aws_api_gateway_resource" "neighbors" {
+# /subscriptions/status
+resource "aws_api_gateway_resource" "subscriptions_status" {
   rest_api_id = aws_api_gateway_rest_api.main.id
-  parent_id   = aws_api_gateway_resource.pitcher.id
-  path_part   = "neighbors"
+  parent_id   = aws_api_gateway_resource.subscriptions.id
+  path_part   = "status"
 }
 
-# --- GET /pitchers/{pitcher_id}/neighbors ---
+# --- GET /subscriptions/status ---
 
-resource "aws_api_gateway_method" "get_neighbors" {
+resource "aws_api_gateway_method" "get_subscription_status" {
   rest_api_id      = aws_api_gateway_rest_api.main.id
-  resource_id      = aws_api_gateway_resource.neighbors.id
+  resource_id      = aws_api_gateway_resource.subscriptions_status.id
   http_method      = "GET"
   authorization    = "CUSTOM"
   authorizer_id    = aws_api_gateway_authorizer.cognito.id
   api_key_required = true
 }
 
-resource "aws_api_gateway_integration" "get_neighbors" {
+resource "aws_api_gateway_integration" "get_subscription_status" {
   rest_api_id             = aws_api_gateway_rest_api.main.id
-  resource_id             = aws_api_gateway_resource.neighbors.id
-  http_method             = aws_api_gateway_method.get_neighbors.http_method
+  resource_id             = aws_api_gateway_resource.subscriptions_status.id
+  http_method             = aws_api_gateway_method.get_subscription_status.http_method
   integration_http_method = "POST"
   type                    = "AWS_PROXY"
-  uri                     = aws_lambda_function.query_neighbors.invoke_arn
+  uri                     = aws_lambda_function.subscription_status.invoke_arn
 }
 
-# --- OPTIONS /pitchers/{pitcher_id}/neighbors (CORS preflight) ---
+# --- OPTIONS /subscriptions/status (CORS preflight) ---
 
-resource "aws_api_gateway_method" "options_neighbors" {
+resource "aws_api_gateway_method" "options_subscription_status" {
   rest_api_id   = aws_api_gateway_rest_api.main.id
-  resource_id   = aws_api_gateway_resource.neighbors.id
+  resource_id   = aws_api_gateway_resource.subscriptions_status.id
   http_method   = "OPTIONS"
   authorization = "NONE"
 }
 
-resource "aws_api_gateway_integration" "options_neighbors" {
+resource "aws_api_gateway_integration" "options_subscription_status" {
   rest_api_id = aws_api_gateway_rest_api.main.id
-  resource_id = aws_api_gateway_resource.neighbors.id
-  http_method = aws_api_gateway_method.options_neighbors.http_method
+  resource_id = aws_api_gateway_resource.subscriptions_status.id
+  http_method = aws_api_gateway_method.options_subscription_status.http_method
   type        = "MOCK"
 
   request_templates = {
@@ -47,10 +47,10 @@ resource "aws_api_gateway_integration" "options_neighbors" {
   }
 }
 
-resource "aws_api_gateway_method_response" "options_neighbors" {
+resource "aws_api_gateway_method_response" "options_subscription_status" {
   rest_api_id = aws_api_gateway_rest_api.main.id
-  resource_id = aws_api_gateway_resource.neighbors.id
-  http_method = aws_api_gateway_method.options_neighbors.http_method
+  resource_id = aws_api_gateway_resource.subscriptions_status.id
+  http_method = aws_api_gateway_method.options_subscription_status.http_method
   status_code = "200"
 
   response_parameters = {
@@ -64,11 +64,11 @@ resource "aws_api_gateway_method_response" "options_neighbors" {
   }
 }
 
-resource "aws_api_gateway_integration_response" "options_neighbors" {
+resource "aws_api_gateway_integration_response" "options_subscription_status" {
   rest_api_id = aws_api_gateway_rest_api.main.id
-  resource_id = aws_api_gateway_resource.neighbors.id
-  http_method = aws_api_gateway_method.options_neighbors.http_method
-  status_code = aws_api_gateway_method_response.options_neighbors.status_code
+  resource_id = aws_api_gateway_resource.subscriptions_status.id
+  http_method = aws_api_gateway_method.options_subscription_status.http_method
+  status_code = aws_api_gateway_method_response.options_subscription_status.status_code
 
   response_parameters = {
     "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,Authorization'"
@@ -79,8 +79,8 @@ resource "aws_api_gateway_integration_response" "options_neighbors" {
 
 # --- Lambda function ---
 
-resource "aws_iam_role" "query_neighbors" {
-  name = "${var.project}-${var.environment}-api-query-neighbors"
+resource "aws_iam_role" "subscription_status" {
+  name = "${var.project}-${var.environment}-api-subscription-status"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -96,21 +96,13 @@ resource "aws_iam_role" "query_neighbors" {
   })
 }
 
-resource "aws_iam_role_policy" "query_neighbors" {
-  name = "${var.project}-${var.environment}-api-query-neighbors"
-  role = aws_iam_role.query_neighbors.id
+resource "aws_iam_role_policy" "subscription_status" {
+  name = "${var.project}-${var.environment}-api-subscription-status"
+  role = aws_iam_role.subscription_status.id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "dynamodb:Query",
-          "dynamodb:GetItem",
-        ]
-        Resource = var.serving_table_arn
-      },
       {
         Effect   = "Allow"
         Action   = ["dynamodb:GetItem"]
@@ -136,10 +128,10 @@ resource "aws_iam_role_policy" "query_neighbors" {
   })
 }
 
-resource "aws_lambda_function" "query_neighbors" {
-  function_name    = "${var.project}-${var.environment}-api-query-neighbors"
-  role             = aws_iam_role.query_neighbors.arn
-  handler          = "doubleday.api.query_neighbors.handler.handler"
+resource "aws_lambda_function" "subscription_status" {
+  function_name    = "${var.project}-${var.environment}-api-subscription-status"
+  role             = aws_iam_role.subscription_status.arn
+  handler          = "doubleday.api.subscription_status.handler.handler"
   runtime          = "python3.12"
   timeout          = 30
   memory_size      = 128
@@ -149,18 +141,17 @@ resource "aws_lambda_function" "query_neighbors" {
 
   environment {
     variables = {
-      SERVING_TABLE_NAME           = var.serving_table_name
       ENTITLEMENTS_TABLE_NAME      = aws_dynamodb_table.entitlements.name
       POWERTOOLS_METRICS_NAMESPACE = "Doubleday"
-      POWERTOOLS_SERVICE_NAME      = "api_query_neighbors"
+      POWERTOOLS_SERVICE_NAME      = "api_subscription_status"
     }
   }
 }
 
-resource "aws_lambda_permission" "query_neighbors" {
+resource "aws_lambda_permission" "subscription_status" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.query_neighbors.function_name
+  function_name = aws_lambda_function.subscription_status.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.main.execution_arn}/*"
 }

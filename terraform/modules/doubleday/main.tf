@@ -2,8 +2,18 @@ data "aws_secretsmanager_secret_version" "google_oauth" {
   secret_id = "${var.environment}/doubleday/cognito_identity_provider/google_client_id"
 }
 
+data "aws_secretsmanager_secret_version" "stripe_api_keys" {
+  secret_id = "${var.environment}/doubleday/stripe/api_keys"
+}
+
+data "aws_secretsmanager_secret_version" "stripe_webhook" {
+  secret_id = "${var.environment}/doubleday/stripe/webhook_signing_secret"
+}
+
 locals {
   google_oauth         = jsondecode(data.aws_secretsmanager_secret_version.google_oauth.secret_string)
+  stripe_api_keys      = jsondecode(data.aws_secretsmanager_secret_version.stripe_api_keys.secret_string)
+  stripe_webhook       = jsondecode(data.aws_secretsmanager_secret_version.stripe_webhook.secret_string)
   frontend_bucket_name = "${var.project}-${var.environment}-frontend"
   frontend_bucket_arn  = "arn:aws:s3:::${var.project}-${var.environment}-frontend"
 }
@@ -42,8 +52,8 @@ module "lambda" {
   lambda_package_hash   = data.archive_file.lambda_package.output_base64sha256
   frontend_bucket_name  = module.frontend.frontend_bucket_name
   frontend_bucket_arn   = module.frontend.frontend_bucket_arn
-  dynamodb_table_name   = module.dynamodb.table_name
-  dynamodb_table_arn    = module.dynamodb.table_arn
+  serving_table_name    = module.dynamodb.table_name
+  serving_table_arn     = module.dynamodb.table_arn
 }
 
 module "step_function" {
@@ -94,8 +104,8 @@ module "api" {
   project             = var.project
   environment         = var.environment
   region              = var.region
-  dynamodb_table_name = module.dynamodb.table_name
-  dynamodb_table_arn  = module.dynamodb.table_arn
+  serving_table_name  = module.dynamodb.table_name
+  serving_table_arn   = module.dynamodb.table_arn
   powertools_layer_arn = var.powertools_layer_arn
   deps_layer_arn        = aws_lambda_layer_version.deps.arn
   lambda_package_path   = data.archive_file.lambda_package.output_path
@@ -106,10 +116,14 @@ module "api" {
     module.cognito.client_id,
     module.cognito.test_client_id,
   ])
-  domain_name          = var.api_domain_name
-  hosted_zone_name     = var.hosted_zone_name
-  frontend_bucket_name = local.frontend_bucket_name
-  frontend_bucket_arn  = local.frontend_bucket_arn
+  domain_name            = var.api_domain_name
+  hosted_zone_name       = var.hosted_zone_name
+  frontend_bucket_name   = local.frontend_bucket_name
+  frontend_bucket_arn    = local.frontend_bucket_arn
+  stripe_secret_key      = local.stripe_api_keys["secret_key"]
+  stripe_webhook_secret  = local.stripe_webhook["signing_secret"]
+  stripe_price_id        = var.stripe_price_id
+  frontend_url           = "https://${var.frontend_domain_name}"
 }
 
 module "frontend" {

@@ -8,3 +8,4 @@ frontend_domain_name  = "doubleday.appleforge.com"
 hosted_zone_name      = "appleforge.com"
 cognito_callback_urls = ["https://doubleday.appleforge.com/callback", "doubleday://callback"]
 cognito_logout_urls   = ["https://doubleday.appleforge.com", "doubleday://"]
+stripe_price_id       = "price_TODO"

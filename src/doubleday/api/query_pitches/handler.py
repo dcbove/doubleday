@@ -10,12 +10,14 @@ from aws_lambda_powertools import Logger, Metrics
 from aws_lambda_powertools.metrics import MetricUnit
 
 from doubleday.api.query_pitches.query import query_pitches
+from doubleday.util.entitlements import check_subscription, is_active
 
 dynamodb = boto3.resource("dynamodb")
 logger = Logger()
 metrics = Metrics()
 
-TABLE_NAME = os.environ["DYNAMODB_TABLE_NAME"]
+SERVING_TABLE_NAME = os.environ["SERVING_TABLE_NAME"]
+ENTITLEMENTS_TABLE_NAME = os.environ["ENTITLEMENTS_TABLE_NAME"]
 
 CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
@@ -60,10 +62,15 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
     pitch_type = query_params.get("pitch_type")
 
+    principal_id = event.get("requestContext", {}).get("authorizer", {}).get("principalId")
+    entitlements_table = dynamodb.Table(ENTITLEMENTS_TABLE_NAME)
+    if not is_active(check_subscription(entitlements_table, principal_id)):
+        return _error_response(403, "Active subscription required")
+
     metrics.add_dimension(name="pitcher", value=str(pitcher_id))
     metrics.add_dimension(name="season", value=str(season))
 
-    table = dynamodb.Table(TABLE_NAME)
+    table = dynamodb.Table(SERVING_TABLE_NAME)
     result = query_pitches(table, pitcher_id, season, pitch_type)
 
     metrics.add_metric(name="PitchTypesReturned", unit=MetricUnit.Count, value=len(result.pitches))

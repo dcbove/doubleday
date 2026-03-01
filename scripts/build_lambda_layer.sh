@@ -11,7 +11,7 @@ cd "$PROJECT_ROOT"
 rm -rf builds/lambda_layer
 mkdir -p builds/lambda_layer/python
 
-pip install PyJWT==2.11.0 cryptography==46.0.5 \
+pip install PyJWT==2.11.0 cryptography==46.0.5 stripe==12.2.0 \
   --target builds/lambda_layer/python \
   --platform manylinux2014_x86_64 \
   --only-binary=:all: \

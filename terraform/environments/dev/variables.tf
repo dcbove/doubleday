@@ -47,3 +47,8 @@ variable "cognito_logout_urls" {
   description = "Allowed logout URLs for Cognito client"
   type        = list(string)
 }
+
+variable "stripe_price_id" {
+  description = "Stripe Price ID for the subscription plan"
+  type        = string
+}
