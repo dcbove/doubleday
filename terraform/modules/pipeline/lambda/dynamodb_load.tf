@@ -74,7 +74,7 @@ resource "aws_iam_role_policy" "dynamodb_load" {
           "dynamodb:Query",
           "dynamodb:Scan",
         ]
-        Resource = var.dynamodb_table_arn
+        Resource = var.serving_table_arn
       },
       {
         Effect = "Allow"
@@ -111,7 +111,7 @@ resource "aws_lambda_function" "dynamodb_load" {
     variables = {
       GLUE_DATABASE                = var.glue_database
       ATHENA_OUTPUT_BUCKET         = var.athena_results_bucket
-      DYNAMODB_TABLE_NAME          = var.dynamodb_table_name
+      SERVING_TABLE_NAME           = var.serving_table_name
       POWERTOOLS_METRICS_NAMESPACE = "Doubleday"
       POWERTOOLS_SERVICE_NAME      = "dynamodb_load"
     }

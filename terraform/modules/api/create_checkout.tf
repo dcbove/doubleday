@@ -1,59 +1,52 @@
 # --- API Gateway resource tree ---
 
-# /pitchers
-resource "aws_api_gateway_resource" "pitchers" {
+# /subscriptions (shared parent for subscription endpoints)
+resource "aws_api_gateway_resource" "subscriptions" {
   rest_api_id = aws_api_gateway_rest_api.main.id
   parent_id   = aws_api_gateway_rest_api.main.root_resource_id
-  path_part   = "pitchers"
+  path_part   = "subscriptions"
 }
 
-# /pitchers/{pitcher_id}
-resource "aws_api_gateway_resource" "pitcher" {
+# /subscriptions/checkout
+resource "aws_api_gateway_resource" "subscriptions_checkout" {
   rest_api_id = aws_api_gateway_rest_api.main.id
-  parent_id   = aws_api_gateway_resource.pitchers.id
-  path_part   = "{pitcher_id}"
+  parent_id   = aws_api_gateway_resource.subscriptions.id
+  path_part   = "checkout"
 }
 
-# /pitchers/{pitcher_id}/pitches
-resource "aws_api_gateway_resource" "pitches" {
-  rest_api_id = aws_api_gateway_rest_api.main.id
-  parent_id   = aws_api_gateway_resource.pitcher.id
-  path_part   = "pitches"
-}
+# --- POST /subscriptions/checkout ---
 
-# --- GET /pitchers/{pitcher_id}/pitches ---
-
-resource "aws_api_gateway_method" "get_pitches" {
+resource "aws_api_gateway_method" "post_checkout" {
   rest_api_id      = aws_api_gateway_rest_api.main.id
-  resource_id      = aws_api_gateway_resource.pitches.id
-  http_method      = "GET"
+  resource_id      = aws_api_gateway_resource.subscriptions_checkout.id
+  http_method      = "POST"
   authorization    = "CUSTOM"
   authorizer_id    = aws_api_gateway_authorizer.cognito.id
   api_key_required = true
 }
 
-resource "aws_api_gateway_integration" "get_pitches" {
+resource "aws_api_gateway_integration" "post_checkout" {
   rest_api_id             = aws_api_gateway_rest_api.main.id
-  resource_id             = aws_api_gateway_resource.pitches.id
-  http_method             = aws_api_gateway_method.get_pitches.http_method
+  resource_id             = aws_api_gateway_resource.subscriptions_checkout.id
+  http_method             = aws_api_gateway_method.post_checkout.http_method
   integration_http_method = "POST"
   type                    = "AWS_PROXY"
-  uri                     = aws_lambda_function.query_pitches.invoke_arn
+  uri                     = aws_lambda_function.create_checkout.invoke_arn
 }
 
-# --- OPTIONS /pitchers/{pitcher_id}/pitches (CORS preflight) ---
+# --- OPTIONS /subscriptions/checkout (CORS preflight) ---
 
-resource "aws_api_gateway_method" "options_pitches" {
+resource "aws_api_gateway_method" "options_checkout" {
   rest_api_id   = aws_api_gateway_rest_api.main.id
-  resource_id   = aws_api_gateway_resource.pitches.id
+  resource_id   = aws_api_gateway_resource.subscriptions_checkout.id
   http_method   = "OPTIONS"
   authorization = "NONE"
 }
 
-resource "aws_api_gateway_integration" "options_pitches" {
+resource "aws_api_gateway_integration" "options_checkout" {
   rest_api_id = aws_api_gateway_rest_api.main.id
-  resource_id = aws_api_gateway_resource.pitches.id
-  http_method = aws_api_gateway_method.options_pitches.http_method
+  resource_id = aws_api_gateway_resource.subscriptions_checkout.id
+  http_method = aws_api_gateway_method.options_checkout.http_method
   type        = "MOCK"
 
   request_templates = {
@@ -61,10 +54,10 @@ resource "aws_api_gateway_integration" "options_pitches" {
   }
 }
 
-resource "aws_api_gateway_method_response" "options_pitches" {
+resource "aws_api_gateway_method_response" "options_checkout" {
   rest_api_id = aws_api_gateway_rest_api.main.id
-  resource_id = aws_api_gateway_resource.pitches.id
-  http_method = aws_api_gateway_method.options_pitches.http_method
+  resource_id = aws_api_gateway_resource.subscriptions_checkout.id
+  http_method = aws_api_gateway_method.options_checkout.http_method
   status_code = "200"
 
   response_parameters = {
@@ -78,23 +71,23 @@ resource "aws_api_gateway_method_response" "options_pitches" {
   }
 }
 
-resource "aws_api_gateway_integration_response" "options_pitches" {
+resource "aws_api_gateway_integration_response" "options_checkout" {
   rest_api_id = aws_api_gateway_rest_api.main.id
-  resource_id = aws_api_gateway_resource.pitches.id
-  http_method = aws_api_gateway_method.options_pitches.http_method
-  status_code = aws_api_gateway_method_response.options_pitches.status_code
+  resource_id = aws_api_gateway_resource.subscriptions_checkout.id
+  http_method = aws_api_gateway_method.options_checkout.http_method
+  status_code = aws_api_gateway_method_response.options_checkout.status_code
 
   response_parameters = {
     "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,Authorization'"
-    "method.response.header.Access-Control-Allow-Methods" = "'GET,OPTIONS'"
+    "method.response.header.Access-Control-Allow-Methods" = "'POST,OPTIONS'"
     "method.response.header.Access-Control-Allow-Origin"  = "'*'"
   }
 }
 
 # --- Lambda function ---
 
-resource "aws_iam_role" "query_pitches" {
-  name = "${var.project}-${var.environment}-api-query-pitches"
+resource "aws_iam_role" "create_checkout" {
+  name = "${var.project}-${var.environment}-api-create-checkout"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -110,9 +103,9 @@ resource "aws_iam_role" "query_pitches" {
   })
 }
 
-resource "aws_iam_role_policy" "query_pitches" {
-  name = "${var.project}-${var.environment}-api-query-pitches"
-  role = aws_iam_role.query_pitches.id
+resource "aws_iam_role_policy" "create_checkout" {
+  name = "${var.project}-${var.environment}-api-create-checkout"
+  role = aws_iam_role.create_checkout.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -120,14 +113,9 @@ resource "aws_iam_role_policy" "query_pitches" {
       {
         Effect = "Allow"
         Action = [
-          "dynamodb:Query",
           "dynamodb:GetItem",
+          "dynamodb:PutItem",
         ]
-        Resource = var.serving_table_arn
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["dynamodb:GetItem"]
         Resource = aws_dynamodb_table.entitlements.arn
       },
       {
@@ -150,10 +138,10 @@ resource "aws_iam_role_policy" "query_pitches" {
   })
 }
 
-resource "aws_lambda_function" "query_pitches" {
-  function_name    = "${var.project}-${var.environment}-api-query-pitches"
-  role             = aws_iam_role.query_pitches.arn
-  handler          = "doubleday.api.query_pitches.handler.handler"
+resource "aws_lambda_function" "create_checkout" {
+  function_name    = "${var.project}-${var.environment}-api-create-checkout"
+  role             = aws_iam_role.create_checkout.arn
+  handler          = "doubleday.api.create_checkout.handler.handler"
   runtime          = "python3.12"
   timeout          = 30
   memory_size      = 128
@@ -163,18 +151,20 @@ resource "aws_lambda_function" "query_pitches" {
 
   environment {
     variables = {
-      SERVING_TABLE_NAME           = var.serving_table_name
+      STRIPE_SECRET_KEY            = var.stripe_secret_key
+      STRIPE_PRICE_ID              = var.stripe_price_id
       ENTITLEMENTS_TABLE_NAME      = aws_dynamodb_table.entitlements.name
+      FRONTEND_URL                 = var.frontend_url
       POWERTOOLS_METRICS_NAMESPACE = "Doubleday"
-      POWERTOOLS_SERVICE_NAME      = "api_query_pitches"
+      POWERTOOLS_SERVICE_NAME      = "api_create_checkout"
     }
   }
 }
 
-resource "aws_lambda_permission" "query_pitches" {
+resource "aws_lambda_permission" "create_checkout" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.query_pitches.function_name
+  function_name = aws_lambda_function.create_checkout.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.main.execution_arn}/*"
 }

@@ -444,7 +444,10 @@ resource "aws_iam_role_policy" "terraform_managed_resources" {
         Sid      = "SecretsManager"
         Effect   = "Allow"
         Action   = ["secretsmanager:GetSecretValue"]
-        Resource = "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:*/doubleday/cognito_identity_provider/*"
+        Resource = [
+          "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:*/doubleday/cognito_identity_provider/*",
+          "arn:aws:secretsmanager:${var.region}:${data.aws_caller_identity.current.account_id}:secret:*/doubleday/stripe/*",
+        ]
       },
       {
         Sid    = "CloudWatchDashboard"
@@ -498,6 +501,27 @@ resource "aws_iam_role_policy" "terraform_managed_resources" {
           "dynamodb:UpdateTimeToLive",
         ]
         Resource = "arn:aws:dynamodb:${var.region}:${data.aws_caller_identity.current.account_id}:table/${var.project}-*"
+      },
+      {
+        Sid    = "EventBridge"
+        Effect = "Allow"
+        Action = [
+          "events:CreateEventBus",
+          "events:DeleteEventBus",
+          "events:DescribeEventBus",
+          "events:PutRule",
+          "events:DeleteRule",
+          "events:DescribeRule",
+          "events:PutTargets",
+          "events:RemoveTargets",
+          "events:ListTargetsByRule",
+          "events:ListTagsForResource",
+          "events:TagResource",
+        ]
+        Resource = [
+          "arn:aws:events:${var.region}:${data.aws_caller_identity.current.account_id}:event-bus/aws.partner/stripe.com/*",
+          "arn:aws:events:${var.region}:${data.aws_caller_identity.current.account_id}:rule/aws.partner/stripe.com/*",
+        ]
       },
       {
         Sid    = "Scheduler"

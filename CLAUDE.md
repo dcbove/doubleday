@@ -13,9 +13,31 @@ All Python commands must be run through `uv run` (e.g., `uv run ruff check`, `uv
 
 Run `uv run ruff check` before committing. Fix any violations — do not suppress with `noqa` unless discussed.
 
+## Testing
+
+Run unit tests with `uv run pytest tests/unit/`. Do not run integration tests (`tests/integration/`) — they require live AWS resources and credentials.
+
+## Deployment
+
+Do not deploy directly. Deployment is handled by CI/CD (see `docs/INFRASTRUCTURE.md`). When changes are ready, suggest that the user commit, push, and open a PR. Provide suggested commands but let the user execute them.
+
+## Documentation
+
+| File | Description |
+|------|-------------|
+| `docs/ARCHITECTURE.md` | Design rationale for key architectural choices (partition strategy, Iceberg, etc.) |
+| `docs/API.md` | REST API reference — domain layout, endpoints, auth, rate limiting |
+| `docs/INFRASTRUCTURE.md` | Terraform modules, Lambda packaging, CI/CD deployment flow |
+| `docs/OPERATIONS.md` | Runbook for invoking Lambdas, running scripts, managing data sources |
+| `docs/RELEASE.md` | iOS release guide — EAS builds, TestFlight, App Store submission |
+| `docs/STRIPE.md` | Stripe integration design — subscriptions, webhooks, entitlements |
+| `docs/TESTING.md` | Test commands, unit/integration test patterns |
+| `docs/openapi.yaml` | OpenAPI 3.0 spec for the REST API |
+| `terraform/CLAUDE.md` | Detailed Terraform architecture and conventions |
+
 ## Project Architecture
 
-Statcast ETL pipeline: Bronze (raw CSV) → Silver (typed Iceberg) → Gold (aggregated Iceberg). Orchestrated by a Step Function, all serverless on AWS. REST API layer serves gold table data to authenticated users.
+Statcast ETL pipeline: Bronze (raw CSV) → Silver (typed Iceberg) → Gold (aggregated Iceberg). Orchestrated by a Step Function, all serverless on AWS. REST API layer serves gold table data. Cognito handles authentication (Google federation); Stripe subscriptions + a DynamoDB entitlements table handle authorization. Data endpoints (pitches, neighbors) require an active subscription; catalog is free.
 
 ### Pipeline Lambda Pattern
 
@@ -29,14 +51,14 @@ Each pipeline Lambda lives in `src/doubleday/pipeline/<name>/` with:
 Each API Lambda lives in `src/doubleday/api/<name>/` with:
 - `__init__.py` — module docstring only
 - `handler.py` — API Gateway proxy handler. Parses path/query params, calls query module, returns `{statusCode, headers, body}` with CORS headers.
-- `query.py` — Business logic. Returns a `@dataclass` result. Exception: `authorizer` has no query module (JWT validation is simple enough for handler alone).
+- `query.py` — Business logic. Returns a `@dataclass` result. Exceptions: `authorizer`, `stripe_webhook`, `create_checkout`, `customer_portal`, and `subscription_status` have no query module (logic is simple enough for handler alone).
 
 ### Terraform Pattern
 
 - **Composition module** (`terraform/modules/doubleday/`): Wires all child modules together and builds the shared Lambda zip. Environments call this single module.
 - **Pipeline modules** (`terraform/modules/pipeline/`): s3, glue, lambda, step_function. Lambda functions receive the shared zip as variables.
 - **Cognito module** (`terraform/modules/cognito/`): User pool with Google federation. Optional test client (`enable_test_client`) for integration testing via `USER_PASSWORD_AUTH`.
-- **API module** (`terraform/modules/api/`): API Gateway, authorizer Lambda, query Lambda, custom domain, rate limiting. Each endpoint is a self-contained `.tf` file (Lambda + IAM + API GW resources + CORS).
+- **API module** (`terraform/modules/api/`): API Gateway, authorizer Lambda, query Lambdas, subscription/Stripe Lambdas, entitlements DynamoDB table, custom domain, rate limiting. Each endpoint is a self-contained `.tf` file (Lambda + IAM + API GW resources + CORS).
 - **Frontend module** (`terraform/modules/frontend/`): S3 + CloudFront + OAC + domain. SPA takes the root domain; API moves to `api.` subdomain.
 - **OIDC module** (`terraform/modules/oidc/`): GitHub Actions IAM role via OIDC federation. Lives in its own root module (`terraform/environments/oidc/`) with separate state, applied before dev/prod in CI.
 - **Environments** (`terraform/environments/{dev,prod}/main.tf`): Call `module "doubleday"` and pass variables.
@@ -78,8 +100,8 @@ Expo React Native app in `frontend/` targeting iOS, Android, and web from a sing
 - Pipeline SQL templates: `sql/pipeline/` (bundled into Lambda zip as `doubleday/sql/`)
 - API SQL templates: `sql/api/` (bundled into Lambda zip as `doubleday/sql/api/`)
 - DDL: `sql/ddl/`
-- Shared utilities: `src/doubleday/util/athena.py`
-- Lambda package: `terraform/modules/doubleday/package.tf` bundles `src/doubleday/**/*.py` + `sql/pipeline/*.sql` + `sql/api/*.sql` as code zip; pip deps (PyJWT, cryptography) are in a separate Lambda Layer
+- Shared utilities: `src/doubleday/util/` (`athena.py`, `entitlements.py`)
+- Lambda package: `terraform/modules/doubleday/package.tf` bundles `src/doubleday/**/*.py` + `sql/pipeline/*.sql` + `sql/api/*.sql` as code zip; pip deps (PyJWT, cryptography, stripe) are in a separate Lambda Layer
 - API code: `src/doubleday/api/`
 - Pipeline code: `src/doubleday/pipeline/`
 - Frontend routes: `frontend/app/` (Expo Router file-based)

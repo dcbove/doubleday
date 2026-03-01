@@ -8,3 +8,5 @@ frontend_domain_name  = "doubleday-dev.appleforge.com"
 hosted_zone_name      = "appleforge.com"
 cognito_callback_urls = ["http://localhost:8081/callback", "https://doubleday-dev.appleforge.com/callback", "doubleday://callback"]
 cognito_logout_urls   = ["http://localhost:8081", "https://doubleday-dev.appleforge.com", "doubleday://"]
+stripe_price_id          = "price_1T6H6GPsWrWHXBNRvzYIqiev"
+stripe_event_source_name = "aws.partner/stripe.com/ed_test_61UFfaObywuBkHwGs16UFeGu62SQpydfyfCDqoEuG3Ki"

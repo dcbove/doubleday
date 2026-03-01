@@ -53,3 +53,13 @@ variable "enable_test_client" {
   type        = bool
   default     = false
 }
+
+variable "stripe_price_id" {
+  description = "Stripe Price ID for the subscription plan"
+  type        = string
+}
+
+variable "stripe_event_source_name" {
+  description = "Stripe EventBridge partner event source name"
+  type        = string
+}

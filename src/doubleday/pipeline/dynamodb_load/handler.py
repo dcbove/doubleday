@@ -19,7 +19,7 @@ metrics = Metrics()
 
 DATABASE = os.environ["GLUE_DATABASE"]
 OUTPUT_BUCKET = os.environ["ATHENA_OUTPUT_BUCKET"]
-TABLE_NAME = os.environ["DYNAMODB_TABLE_NAME"]
+SERVING_TABLE_NAME = os.environ["SERVING_TABLE_NAME"]
 SQL_DIR = Path(doubleday.__file__).parent / "sql"
 
 
@@ -33,7 +33,7 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     metrics.add_dimension(name="entity_type", value=entity_type)
     metrics.add_dimension(name="season", value=str(season))
 
-    table = dynamodb.Table(TABLE_NAME)
+    table = dynamodb.Table(SERVING_TABLE_NAME)
     result = load_to_dynamodb(athena, table, DATABASE, OUTPUT_BUCKET, SQL_DIR, entity_type, season)
 
     metrics.add_metric(name="RecordsLoaded", unit=MetricUnit.Count, value=result.records_loaded)

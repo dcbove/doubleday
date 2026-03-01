@@ -13,3 +13,13 @@ output "api_key" {
   value       = aws_api_gateway_api_key.main.value
   sensitive   = true
 }
+
+output "entitlements_table_name" {
+  description = "Name of the DynamoDB entitlements table"
+  value       = aws_dynamodb_table.entitlements.name
+}
+
+output "entitlements_table_arn" {
+  description = "ARN of the DynamoDB entitlements table"
+  value       = aws_dynamodb_table.entitlements.arn
+}

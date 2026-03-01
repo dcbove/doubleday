@@ -41,8 +41,19 @@ export async function apiFetch(path, options = {}) {
   });
 
   if (!response.ok) {
-    throw new Error(`API error: ${response.status} ${response.statusText}`);
+    const err = new Error(`API error: ${response.status} ${response.statusText}`);
+    err.status = response.status;
+    throw err;
   }
 
   return response.json();
+}
+
+export async function apiPost(path, body = {}, options = {}) {
+  return apiFetch(path, {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options.headers },
+    body: JSON.stringify(body),
+  });
 }

@@ -71,6 +71,22 @@ resource "aws_api_gateway_deployment" "main" {
       aws_api_gateway_method.options_neighbors,
       aws_api_gateway_integration.options_neighbors,
       aws_api_gateway_authorizer.cognito,
+      aws_api_gateway_resource.subscriptions,
+      aws_api_gateway_resource.subscriptions_checkout,
+      aws_api_gateway_method.post_checkout,
+      aws_api_gateway_integration.post_checkout,
+      aws_api_gateway_method.options_checkout,
+      aws_api_gateway_integration.options_checkout,
+      aws_api_gateway_resource.subscriptions_portal,
+      aws_api_gateway_method.post_portal,
+      aws_api_gateway_integration.post_portal,
+      aws_api_gateway_method.options_portal,
+      aws_api_gateway_integration.options_portal,
+      aws_api_gateway_resource.subscriptions_status,
+      aws_api_gateway_method.get_subscription_status,
+      aws_api_gateway_integration.get_subscription_status,
+      aws_api_gateway_method.options_subscription_status,
+      aws_api_gateway_integration.options_subscription_status,
     ]))
   }
 
