@@ -190,6 +190,14 @@ resource "aws_sfn_state_machine" "pipeline" {
             "season.$"   = "$.season"
           }
         }
+        Retry = [
+          {
+            ErrorEquals     = ["States.ALL"]
+            IntervalSeconds = 60
+            MaxAttempts     = 3
+            BackoffRate     = 2.0
+          }
+        ]
         ResultPath = null
         Next       = "GoldLoadNormStats"
       }
@@ -204,6 +212,14 @@ resource "aws_sfn_state_machine" "pipeline" {
             "season.$"   = "$.season"
           }
         }
+        Retry = [
+          {
+            ErrorEquals     = ["States.ALL"]
+            IntervalSeconds = 60
+            MaxAttempts     = 3
+            BackoffRate     = 2.0
+          }
+        ]
         ResultPath = null
         Next       = "GoldLoadNeighbors"
       }
@@ -222,6 +238,14 @@ resource "aws_sfn_state_machine" "pipeline" {
             }
           }
         }
+        Retry = [
+          {
+            ErrorEquals     = ["States.ALL"]
+            IntervalSeconds = 60
+            MaxAttempts     = 3
+            BackoffRate     = 2.0
+          }
+        ]
         ResultPath = null
         Next       = "DynamoDBLoadParallel"
       }

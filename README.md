@@ -187,14 +187,6 @@ This sets `core.hooksPath` to `.githooks/`, which is tracked in the repo — no 
 
 The bronze layer is raw, unmodified Statcast pitch-by-pitch CSV data downloaded from Baseball Savant. All columns are stored as strings. Data is Hive-style partitioned by season and game date for use with Athena and Glue.
 
-### Download
-
-```bash
-bash scripts/download_year.sh <year>
-```
-
-One CSV per day across the MLB season (March through November). Baseball Savant caps exports at ~25,000 rows per request; the script warns if any file hits this limit.
-
 ### Local layout
 
 ```
@@ -203,37 +195,6 @@ data/bronze/
     ├── game_date=2025-03-01/statcast.csv
     ├── game_date=2025-03-02/statcast.csv
     └── ...
-```
-
-### Invoking the bronze_load Lambda
-
-```bash
-aws lambda invoke \
-  --function-name doubleday-dev-bronze-load \
-  --payload '{"season": 2024, "game_date": "2024-03-01", "force_download": false}' \
-  --cli-binary-format raw-in-base64-out \
-  /dev/stdout
-```
-
-### Sync with S3
-
-```bash
-# Upload
-aws s3 sync data/bronze/ s3://doubleday-<env>-lakehouse/bronze/
-
-# Download
-aws s3 sync s3://doubleday-<env>-lakehouse/bronze/ data/bronze/
-```
-
-### Query with Athena
-
-The bronze table is available as `doubleday_<env>.bronze_statcast`. Always filter on partition keys for performance:
-
-```sql
-SELECT pitch_type, count(*)
-FROM doubleday_dev.bronze_statcast
-WHERE season = 2025
-GROUP BY pitch_type
 ```
 
 ## Data: Silver Layer
@@ -276,16 +237,6 @@ Each staging row is tagged with two identifiers:
 
 **Concurrency constraint:** the DELETE + INSERT into canonical is not atomic. Two concurrent executions writing to the same `(season, game_date)` partition could interleave and produce duplicates. The Step Function ensures each partition is processed by exactly one Lambda within an execution. Overlapping executions on the same partition are an operational concern — don't run two backfills that overlap on the same dates concurrently.
 
-### Invoking the silver_load Lambda
-
-```bash
-aws lambda invoke \
-  --function-name doubleday-dev-silver-load \
-  --payload '{"season": 2024, "game_date": "2024-03-01", "batch_id": "manual-test"}' \
-  --cli-binary-format raw-in-base64-out \
-  /dev/stdout
-```
-
 ### S3 layout
 
 ```
@@ -318,31 +269,6 @@ sql/ddl/gold_repertoire_shape_neighbors.sql
 
 The `gold_load` Lambda loads a single gold table for a given season. It reads a pair of SQL files — a DELETE (clear the season partition) and an INSERT (rebuild from silver) — and executes each in order. Tables that need additional SQL template parameters (beyond `season`) receive them via `format_params` in the event payload.
 
-### Invoking the gold_load Lambda
-
-```bash
-# gold_pitches_shape_season
-aws lambda invoke \
-  --function-name doubleday-dev-gold-load \
-  --payload '{"table_name": "gold_pitches_shape_season", "season": 2024}' \
-  --cli-binary-format raw-in-base64-out \
-  /dev/stdout
-
-# gold_pitch_type_norm_stats (depends on gold_pitches_shape_season)
-aws lambda invoke \
-  --function-name doubleday-dev-gold-load \
-  --payload '{"table_name": "gold_pitch_type_norm_stats", "season": 2024}' \
-  --cli-binary-format raw-in-base64-out \
-  /dev/stdout
-
-# gold_repertoire_shape_neighbors (depends on gold_pitch_type_norm_stats)
-aws lambda invoke \
-  --function-name doubleday-dev-gold-load \
-  --payload '{"table_name": "gold_repertoire_shape_neighbors", "season": 2024, "format_params": {"lambda": "0.4", "tau": "1"}}' \
-  --cli-binary-format raw-in-base64-out \
-  /dev/stdout
-```
-
 ### S3 layout
 
 ```
@@ -356,51 +282,11 @@ s3://doubleday-<env>-lakehouse/gold/
 
 The serving layer is a DynamoDB single-table (`doubleday-{env}-serving`) populated from gold Iceberg tables. It provides single-digit millisecond reads for the API, replacing Athena queries. Items use composite keys: `PK = PITCHER#{id}#SEASON#{year}`, `SK = PITCH#{type}` or `NEIGHBOR#{rank:03d}`.
 
-The `dynamodb_load` Lambda reads a gold table via Athena, deletes existing items for that entity/season, then batch-writes fresh items.
-
-### Invoking the dynamodb_load Lambda
-
-```bash
-# Load pitches for a season
-aws lambda invoke \
-  --function-name doubleday-dev-dynamodb-load \
-  --payload '{"entity_type": "pitches", "season": 2024}' \
-  --cli-binary-format raw-in-base64-out \
-  /dev/stdout
-
-# Load neighbors for a season
-aws lambda invoke \
-  --function-name doubleday-dev-dynamodb-load \
-  --payload '{"entity_type": "neighbors", "season": 2024}' \
-  --cli-binary-format raw-in-base64-out \
-  /dev/stdout
-```
-
-Both entity types run automatically as a parallel step in the pipeline after gold load completes.
+The `dynamodb_load` Lambda reads a gold table via Athena, deletes existing items for that entity/season, then batch-writes fresh items. Both entity types run automatically as a parallel step in the pipeline after gold load completes.
 
 ## Player Catalogs
 
 The catalog build pipeline generates static player catalog artifacts (`catalog.json` and `manifest.json`) for each season and role. These are published to the frontend S3 bucket and served via CloudFront. The SPA fetches the manifest through the authenticated API, then conditionally downloads the catalog blob for local search.
-
-### Invoking the catalog_build Lambda
-
-```bash
-aws lambda invoke \
-  --function-name doubleday-dev-catalog-build \
-  --cli-binary-format raw-in-base64-out \
-  --payload '{"season": 2024, "role": "pitchers"}' \
-  /dev/stdout
-```
-
-Use `force_rebuild` to re-fetch all enrichment data from the MLB API (ignoring the cache):
-
-```bash
-aws lambda invoke \
-  --function-name doubleday-dev-catalog-build \
-  --cli-binary-format raw-in-base64-out \
-  --payload '{"season": 2024, "role": "pitchers", "force_rebuild": true}' \
-  /dev/stdout
-```
 
 ### S3 layout
 
@@ -427,40 +313,16 @@ A Standard Step Function orchestrates the full ETL pipeline:
 5. **GoldLoadShapeSeason** — invoke `gold_load` for `gold_pitches_shape_season`
 6. **GoldLoadNormStats** — invoke `gold_load` for `gold_pitch_type_norm_stats` (depends on shape season)
 7. **GoldLoadNeighbors** — invoke `gold_load` for `gold_repertoire_shape_neighbors` (depends on norm stats)
-8. **CatalogBuildMap** (concurrency 2) — invoke `catalog_build` for each role (pitchers, batters)
-9. **CheckFailures** — invoke `check_failures` to scan S3 for failure records from this `batch_id`
-10. **HasFailures** — if any silver loads failed, the execution ends with `SilverLoadPartialFailure`; otherwise succeeds
+8. **DynamoDBLoadParallel** — invoke `dynamodb_load` for pitches and neighbors concurrently
+9. **CatalogBuildMap** (concurrency 2) — invoke `catalog_build` for each role (pitchers, batters)
+10. **CheckFailures** — invoke `check_failures` to scan S3 for failure records from this `batch_id`
+11. **HasFailures** — if any silver loads failed, the execution ends with `SilverLoadPartialFailure`; otherwise succeeds
 
-### Invoking the Step Function
-
-```bash
-aws stepfunctions start-execution \
-  --state-machine-arn arn:aws:states:<region>:<account>:stateMachine:doubleday-dev-pipeline \
-  --input '{"season": 2024, "game_dates": ["2024-03-01"]}'
-```
-
-Use `force_download` to re-download files that already exist in S3:
-
-```bash
-aws stepfunctions start-execution \
-  --state-machine-arn arn:aws:states:<region>:<account>:stateMachine:doubleday-dev-pipeline \
-  --input '{"season": 2024, "game_dates": ["2024-03-01"], "force_download": true}'
-```
-
-### Backfilling a season
-
-To process an entire season (March 1–Nov 30), use the backfill script:
-
-```bash
-bash scripts/backfill_season.sh 2024        # defaults to dev
-bash scripts/backfill_season.sh 2024 prod   # specify environment
-```
-
-This generates all ~275 dates in the range and starts a single Step Function execution. Bronze load skips any dates already in S3 (unless `force_download` is set), so backfills are safe to re-run — only silver and gold do real work for previously downloaded data.
+See [OPERATIONS.md](OPERATIONS.md) for Lambda invocation commands, scripts, and operational runbooks.
 
 ### Why partition overwrite (DELETE + INSERT) instead of MERGE
 
-Statcast game data is effectively immutable once finalized. Our ingestion unit is already aligned to a natural partition boundary — `(season, game_date)` for silver, `(season)` for gold — and reprocessing means "replace that partition," not "surgically edit individual rows." MERGE (update matched, insert unmatched) would leave behind rows that disappeared from the source — if Statcast retroactively drops a pitch, MERGE can't detect the absence. DELETE + INSERT guarantees canonical exactly mirrors the source for any reprocessed partition.
+Statcast game data is effectively immutable once finalized. Our ingestion unit is already aligned to a natural partition boundary — `(season, game_date)` for silver, `(season)` for gold — and each load always replaces **every row in the partition** from bronze source. We never partially update a partition (e.g., "update 3 rows out of 4,000") — it's always a full reprocess of the day or season. Given that, MERGE offers no efficiency advantage: it would still read and match every row, only to discover they all need replacing. Meanwhile, MERGE (update matched, insert unmatched) would leave behind rows that disappeared from the source — if Statcast retroactively drops a pitch, MERGE can't detect the absence. DELETE + INSERT is simpler, produces fewer Iceberg commits (2 vs 3+), and guarantees canonical exactly mirrors the source for any reprocessed partition.
 
 ### Why Standard over Express Step Functions
 
@@ -631,24 +493,6 @@ The auth integration tests authenticate against a dedicated Cognito test client 
    ```
 
 The test client is only created in dev (`enable_test_client = true`). Prod defaults to `false` — no test client, no change.
-
-## Iceberg Introspection
-
-View snapshot history (each load creates a new snapshot):
-
-```sql
-SELECT * FROM "silver_pitches$snapshots";
-```
-
-Verify partition pruning is working on a query:
-
-```sql
-EXPLAIN
-SELECT COUNT(*)
-FROM silver_pitches
-WHERE season = 2025
-  AND game_date = DATE '2025-05-14';
-```
 
 ## Infrastructure
 
