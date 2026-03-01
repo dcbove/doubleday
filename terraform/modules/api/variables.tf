@@ -96,10 +96,9 @@ variable "stripe_secret_key" {
   sensitive   = true
 }
 
-variable "stripe_webhook_secret" {
-  description = "Stripe webhook signing secret"
+variable "stripe_event_source_name" {
+  description = "Stripe EventBridge partner event source name (e.g. aws.partner/stripe.com/<account_id>/<destination_id>)"
   type        = string
-  sensitive   = true
 }
 
 variable "stripe_price_id" {

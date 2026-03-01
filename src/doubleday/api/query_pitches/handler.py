@@ -39,6 +39,11 @@ def _error_response(status_code: int, message: str) -> dict[str, Any]:
 @metrics.log_metrics
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """Handle GET /pitchers/{pitcher_id}/pitches requests."""
+    principal_id = event.get("requestContext", {}).get("authorizer", {}).get("principalId")
+    entitlements_table = dynamodb.Table(ENTITLEMENTS_TABLE_NAME)
+    if not is_active(check_subscription(entitlements_table, principal_id)):
+        return _error_response(403, "Active subscription required")
+
     path_params = event.get("pathParameters") or {}
     query_params = event.get("queryStringParameters") or {}
 
@@ -61,11 +66,6 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         return _error_response(400, "season must be an integer")
 
     pitch_type = query_params.get("pitch_type")
-
-    principal_id = event.get("requestContext", {}).get("authorizer", {}).get("principalId")
-    entitlements_table = dynamodb.Table(ENTITLEMENTS_TABLE_NAME)
-    if not is_active(check_subscription(entitlements_table, principal_id)):
-        return _error_response(403, "Active subscription required")
 
     metrics.add_dimension(name="pitcher", value=str(pitcher_id))
     metrics.add_dimension(name="season", value=str(season))

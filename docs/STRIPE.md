@@ -28,45 +28,126 @@ Single-table design with PK-only key (`USER#{cognito_sub}`). No sort key needed 
 ### Cognito-to-Stripe customer linkage
 
 When creating a Stripe Checkout session, we store `cognito_sub` in both:
-- `client_reference_id` on the Checkout Session (available in `checkout.session.completed` webhook)
-- `metadata.cognito_sub` on the Stripe Customer object (available in all subsequent subscription lifecycle webhooks via `stripe.Customer.retrieve()`)
+- `client_reference_id` on the Checkout Session (available in `checkout.session.completed` event)
+- `metadata.cognito_sub` on the Stripe Customer object (available in all subsequent subscription lifecycle events via `stripe.Customer.retrieve()`)
 
 This avoids needing a DynamoDB GSI on `stripe_customer_id`.
 
-### Webhook signing secret — Stripe CLI for dev
+### Event delivery — EventBridge partner integration
 
-The webhook signing secret (`whsec_...`) is created when you register a webhook endpoint in the Stripe Dashboard. Since the endpoint URL must exist first, the dev workflow is:
+Stripe events are delivered via Amazon EventBridge (not a webhook endpoint). This eliminates the need for an API Gateway endpoint, CORS configuration, and signature verification. Stripe sends events directly to a partner event bus in EventBridge, and an EventBridge rule routes the 4 subscription lifecycle events to a Lambda function.
 
-1. Deploy the webhook Lambda
-2. Use `stripe listen --forward-to <endpoint-url>` for local/dev testing (provides a temporary signing secret)
-3. Register the real webhook endpoint in Stripe Dashboard when ready for production
-4. Store the production signing secret in Secrets Manager (`{env}/doubleday/stripe/webhook_signing_secret`)
+Setup: In Stripe Dashboard → Developers → Webhooks → Add destination → Amazon EventBridge. The event source name (e.g., `aws.partner/stripe.com/<account_id>/<destination_id>`) is passed to Terraform as `stripe_event_source_name`.
 
-For dev, the Stripe CLI signing secret can be stored in Secrets Manager temporarily, or passed as an environment variable override.
+### Email in entitlements table
+
+The entitlement record stores the user's email for operational lookups (e.g., `delete_entitlement.sh`). The email comes from the Stripe `checkout.session.completed` event, not from the JWT.
+
+Why not from the authorizer? Browser clients send **access tokens** (the correct OAuth pattern). Access tokens don't carry an `email` claim — only ID tokens do. Switching to ID tokens would be incorrect, and adding a Cognito API call to the authorizer adds latency to every request for a value only needed once at checkout time.
+
+The `checkout.session.completed` event includes the email in `customer_details.email` (populated by Stripe from the checkout form). The handler checks `customer_email` first (pre-filled if the Customer object has an email), then falls back to `customer_details.email`.
 
 ### Secrets management
 
-Stripe secrets live in AWS Secrets Manager, following the existing pattern (same as Google OAuth credentials):
+Stripe API keys live in AWS Secrets Manager, following the existing pattern (same as Google OAuth credentials):
 - `{env}/doubleday/stripe/api_keys` → `{"secret_key": "sk_...", "publishable_key": "pk_..."}`
-- `{env}/doubleday/stripe/webhook_signing_secret` → `{"signing_secret": "whsec_..."}`
 
-Read by Terraform via `data "aws_secretsmanager_secret_version"`, decoded, and passed as Lambda environment variables.
+Read by Terraform via `data "aws_secretsmanager_secret_version"`, decoded, and passed as Lambda environment variables. No webhook signing secret is needed with EventBridge.
 
-## Stripe Account Setup
+## Prerequisites
 
-### Sandbox keys (already obtained)
+### Stripe CLI
 
-- Publishable key: `pk_test_...`
-- Secret key: `sk_test_...`
+Install the Stripe CLI for testing event delivery:
 
-### Still needed
+```bash
+brew install stripe/stripe-cli/stripe
+stripe login
+```
 
-- [ ] Create a Product and Price in Stripe Dashboard (subscription plan)
-- [ ] Register webhook endpoint (after Lambda is deployed) to get signing secret
-- [ ] Configure Stripe Customer Portal (branding, allowed actions)
+Trigger test events:
+
+```bash
+stripe trigger checkout.session.completed
+```
+
+## Environment Setup Checklist
+
+These steps must be completed for each environment (dev, prod).
+
+### 1. Create Stripe API keys secret
+
+Get API keys from Stripe Dashboard → Developers → API keys, then:
+
+```bash
+aws secretsmanager create-secret \
+  --name "{env}/doubleday/stripe/api_keys" \
+  --secret-string '{"secret_key": "sk_...", "publishable_key": "pk_..."}'
+```
+
+### 2. Create a Product and Price
+
+In Stripe Dashboard → Product catalog → Add product:
+- Set a name (e.g., "Doubleday Pro")
+- Add a recurring price (e.g., $10/month)
+- Copy the Price ID (`price_...`)
+- Set it in `terraform/environments/{env}/terraform.tfvars` as `stripe_price_id`
+
+### 3. Configure EventBridge destination
+
+In Stripe Dashboard → Developers → Webhooks → Add destination:
+1. Select **Amazon EventBridge**
+2. Enter your AWS account ID and region (`us-east-1`)
+3. Select the 4 event types:
+   - `checkout.session.completed`
+   - `customer.subscription.updated`
+   - `customer.subscription.deleted`
+   - `invoice.payment_failed`
+4. Copy the event source name (`aws.partner/stripe.com/...`)
+5. Set it in `terraform/environments/{env}/terraform.tfvars` as `stripe_event_source_name`
+
+### 4. Deploy infrastructure
+
+Push to a PR branch (deploys dev) or merge to main (deploys prod).
+
+### 5. Verify event delivery
+
+```bash
+stripe trigger checkout.session.completed
+aws logs tail /aws/lambda/doubleday-{env}-api-stripe-events --since 5m
+```
+
+Expect a `checkout.session.completed` log entry with a warning about `missing client_reference_id` (test events don't include a real checkout session).
+
+### 6. Configure Customer Portal
+
+In Stripe Dashboard → Settings → Customer portal:
+- Enable cancel subscription
+- Enable update payment method
+- Enable view invoices
+
+## Operations
+
+### Delete a subscriber's entitlement
+
+To remove a user's entitlement (e.g., for testing), use the script with an email or cognito sub:
+
+```bash
+bash scripts/delete_entitlement.sh user@gmail.com          # lookup by email
+bash scripts/delete_entitlement.sh <cognito-sub>            # lookup by cognito sub
+bash scripts/delete_entitlement.sh user@gmail.com prod      # specify environment
+```
+
+The script warns if a Stripe subscription is still active. Cancel the subscription in Stripe first to avoid it being recreated by the next billing event:
+
+```bash
+stripe subscriptions cancel <subscription_id>
+```
+
+Or cancel via Stripe Dashboard → Customers → find customer → cancel subscription.
 
 ## Deploy Order
 
-`Phase 1 (infra) → Phase 2 (webhook) → Phase 4 (checkout/portal/status) → Phase 5 (frontend) → Phase 3 (enforcement)`
+`Phase 1 (infra + EventBridge) → Phase 4 (checkout/portal/status) → Phase 5 (frontend) → Phase 3 (enforcement)`
 
 Enforcement is enabled last so users can subscribe before being gated.

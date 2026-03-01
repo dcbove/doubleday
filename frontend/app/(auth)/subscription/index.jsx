@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { View, Text, Pressable, ActivityIndicator, Platform } from "react-native";
 import * as Linking from "expo-linking";
-import useSubscription from "../../src/hooks/useSubscription";
-import { apiPost } from "../../src/api/client";
+import useSubscription from "../../../src/hooks/useSubscription";
+import { apiPost } from "../../../src/api/client";
 
 export default function Subscription() {
   const { subscription, loading, refresh } = useSubscription();

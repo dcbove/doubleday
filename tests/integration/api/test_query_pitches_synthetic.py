@@ -4,13 +4,11 @@ These tests invoke the deployed Lambda directly with synthetic API Gateway
 proxy events — the same JSON structure that API Gateway sends on a real
 request, but constructed in the test. This bypasses API Gateway entirely
 (no resource matching, no integration config, no authorizer) and tests the
-handler's event parsing and Athena query logic against real data in the dev
+handler's event parsing and query logic against real data in the dev
 environment.
 
-For tests that route through the real API Gateway, see
-``test_query_pitches_gateway.py``.
-
-Requires valid AWS credentials and existing gold table data for season 2025.
+Requires valid AWS credentials, a deployed API Gateway in dev, and existing
+gold table data for season 2025.
 """
 
 import json
@@ -29,6 +27,7 @@ SEASON = "2025"
 
 
 def _apigw_event(
+    principal_id: str,
     path_params: dict[str, str] | None = None,
     query_params: dict[str, str] | None = None,
 ) -> dict[str, Any]:
@@ -38,6 +37,7 @@ def _apigw_event(
     Only the fields that the handler actually reads are included.
 
     Args:
+        principal_id: The Cognito sub to use as the authorizer principalId.
         path_params: Path parameters (e.g. {"pitcher_id": "660271"}).
         query_params: Query string parameters (e.g. {"season": "2024"}).
 
@@ -49,6 +49,11 @@ def _apigw_event(
         "queryStringParameters": query_params,
         "httpMethod": "GET",
         "resource": "/pitchers/{pitcher_id}/pitches",
+        "requestContext": {
+            "authorizer": {
+                "principalId": principal_id,
+            },
+        },
     }
 
 
@@ -83,7 +88,7 @@ def _invoke(event: dict[str, Any]) -> dict[str, Any]:
 class TestQueryPitchesSynthetic:
     """Test the query_pitches Lambda with synthetic API Gateway events."""
 
-    def test_returns_pitch_data(self):
+    def test_returns_pitch_data(self, test_user_sub):
         """Query a known pitcher/season and verify the response shape.
 
         Sends a valid request for Shohei Ohtani's 2025 season and asserts:
@@ -93,6 +98,7 @@ class TestQueryPitchesSynthetic:
         - Each pitch type has expected numeric fields
         """
         event = _apigw_event(
+            test_user_sub,
             path_params={"pitcher_id": PITCHER_ID},
             query_params={"season": SEASON},
         )
@@ -110,13 +116,14 @@ class TestQueryPitchesSynthetic:
         assert isinstance(pitch["avg_velocity"], float)
         assert isinstance(pitch["pitch_count"], int)
 
-    def test_filters_by_pitch_type(self):
+    def test_filters_by_pitch_type(self, test_user_sub):
         """Query with a pitch_type filter and verify only that type is returned.
 
         Ohtani throws a sweeper (ST). The response should contain exactly one
         pitch type entry matching the filter.
         """
         event = _apigw_event(
+            test_user_sub,
             path_params={"pitcher_id": PITCHER_ID},
             query_params={"season": SEASON, "pitch_type": "ST"},
         )
@@ -128,9 +135,10 @@ class TestQueryPitchesSynthetic:
         assert len(pitches) == 1
         assert pitches[0]["pitch_type"] == "ST"
 
-    def test_missing_season_returns_400(self):
+    def test_missing_season_returns_400(self, test_user_sub):
         """Omit the required season parameter and verify a 400 response."""
         event = _apigw_event(
+            test_user_sub,
             path_params={"pitcher_id": PITCHER_ID},
             query_params=None,
         )
@@ -139,9 +147,10 @@ class TestQueryPitchesSynthetic:
         assert response["statusCode"] == 400
         assert "season" in response["body"]["error"].lower()
 
-    def test_missing_pitcher_id_returns_400(self):
+    def test_missing_pitcher_id_returns_400(self, test_user_sub):
         """Omit the pitcher_id path parameter and verify a 400 response."""
         event = _apigw_event(
+            test_user_sub,
             path_params=None,
             query_params={"season": SEASON},
         )
@@ -150,9 +159,10 @@ class TestQueryPitchesSynthetic:
         assert response["statusCode"] == 400
         assert "pitcher_id" in response["body"]["error"].lower()
 
-    def test_nonexistent_pitcher_returns_empty(self):
+    def test_nonexistent_pitcher_returns_empty(self, test_user_sub):
         """Query a pitcher with no data and verify an empty pitches list."""
         event = _apigw_event(
+            test_user_sub,
             path_params={"pitcher_id": "9999999"},
             query_params={"season": SEASON},
         )
@@ -160,3 +170,15 @@ class TestQueryPitchesSynthetic:
 
         assert response["statusCode"] == 200
         assert response["body"]["pitches"] == []
+
+    def test_no_subscription_returns_403(self):
+        """Request without a valid subscription returns 403."""
+        event = _apigw_event(
+            "no-such-user",
+            path_params={"pitcher_id": PITCHER_ID},
+            query_params={"season": SEASON},
+        )
+        response = _invoke(event)
+
+        assert response["statusCode"] == 403
+        assert "subscription" in response["body"]["error"].lower()
