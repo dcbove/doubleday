@@ -1,39 +1,33 @@
-"""Catalog manifest query — read pre-built manifest from S3."""
+"""Catalog query — read player catalog from DynamoDB serving table."""
 
-import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
-from botocore.exceptions import ClientError
+from doubleday.util.dynamodb import query_items
 
 
 @dataclass
-class ManifestResult:
-    """Result of a catalog manifest lookup."""
+class CatalogResult:
+    """Result of a catalog query."""
 
-    manifest: dict
+    season: int
+    role: str
+    players: list[dict] = field(default_factory=list)
 
 
-def get_manifest(s3, bucket: str, season: int, role: str) -> ManifestResult:
-    """Read a catalog manifest from S3.
+def get_catalog(table, season: int, role: str) -> CatalogResult:
+    """Query the player catalog from the DynamoDB serving table.
 
     Args:
-        s3: Boto3 S3 client.
-        bucket: Frontend S3 bucket name.
+        table: Boto3 DynamoDB Table resource.
         season: The season year.
         role: Player role (``"pitchers"`` or ``"batters"``).
 
     Returns:
-        ManifestResult containing the parsed manifest dict.
-
-    Raises:
-        FileNotFoundError: If the manifest does not exist in S3.
+        CatalogResult with season, role, and list of player dicts sorted
+        by (last_name, first_name).
     """
-    key = f"static/catalogs/{role}/season={season}/manifest.json"
-    try:
-        response = s3.get_object(Bucket=bucket, Key=key)
-    except ClientError as exc:
-        if exc.response["Error"]["Code"] == "NoSuchKey":
-            raise FileNotFoundError(f"No manifest at s3://{bucket}/{key}") from exc
-        raise
-    body = response["Body"].read().decode("utf-8")
-    return ManifestResult(manifest=json.loads(body))
+    role_singular = role.rstrip("s")
+    pk = f"CATALOG#{role_singular}#SEASON#{season}"
+    players = query_items(table, pk, sk_prefix="PLAYER#")
+    players.sort(key=lambda p: (p.get("last_name", ""), p.get("first_name", "")))
+    return CatalogResult(season=season, role=role, players=players)

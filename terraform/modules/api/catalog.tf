@@ -111,19 +111,9 @@ resource "aws_iam_role_policy" "catalog" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = "s3:GetObject"
-        Resource = "${var.frontend_bucket_arn}/static/catalogs/*"
-      },
-      {
         Effect   = "Allow"
-        Action   = "s3:ListBucket"
-        Resource = var.frontend_bucket_arn
-        Condition = {
-          StringLike = {
-            "s3:prefix" = ["static/catalogs/*"]
-          }
-        }
+        Action   = "dynamodb:Query"
+        Resource = var.serving_table_arn
       },
       {
         Effect   = "Allow"
@@ -156,7 +146,7 @@ resource "aws_lambda_function" "catalog" {
 
   environment {
     variables = {
-      FRONTEND_BUCKET              = var.frontend_bucket_name
+      SERVING_TABLE_NAME           = var.serving_table_name
       POWERTOOLS_METRICS_NAMESPACE = "Doubleday"
       POWERTOOLS_SERVICE_NAME      = "api_catalog"
     }
