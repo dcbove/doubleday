@@ -1,27 +1,28 @@
-import { useState } from "react";
-import { View, Text, Pressable, Image } from "react-native";
+import { useState, useRef, useEffect } from "react";
+import { View, Text, Pressable, Image, Platform } from "react-native";
 import { router } from "expo-router";
 import useAuth from "../auth/useAuth";
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!menuOpen || Platform.OS !== "web") return;
+
+    function handlePress(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePress);
+    return () => document.removeEventListener("mousedown", handlePress);
+  }, [menuOpen]);
 
   return (
     <View className="border-b border-gray-200 bg-white" style={{ zIndex: 50 }}>
-      {menuOpen && (
-        <Pressable
-          onPress={() => setMenuOpen(false)}
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 40,
-          }}
-        />
-      )}
       <View
         className="mx-auto flex w-full max-w-7xl flex-row items-center justify-between px-4 py-3 sm:px-6 lg:px-8"
         style={{ overflow: "visible" }}
@@ -35,9 +36,9 @@ export default function Navbar() {
           </Pressable>
         </View>
         {user && (
-          <View style={{ position: "relative", overflow: "visible", zIndex: 50 }}>
+          <View ref={menuRef} style={{ position: "relative", overflow: "visible", zIndex: 50 }}>
             <Pressable
-              className="flex-row items-center gap-2 rounded-md px-2 py-1.5 active:bg-gray-100"
+              className="flex-row items-center gap-2 rounded-md px-2 py-1.5"
               onPress={() => setMenuOpen((prev) => !prev)}
             >
               {user.picture && (
@@ -57,7 +58,8 @@ export default function Navbar() {
               <View
                 style={{
                   position: "absolute",
-                  left: 0,
+                  right: Platform.OS === "web" ? undefined : 0,
+                  left: Platform.OS === "web" ? 0 : undefined,
                   top: "100%",
                   marginTop: 4,
                   width: 192,
@@ -87,7 +89,6 @@ export default function Navbar() {
                         paddingVertical: 8,
                         fontSize: 14,
                         color: "#374151",
-
                         backgroundColor: pressed ? "#f3f4f6" : "transparent",
                       }}
                     >
@@ -116,7 +117,6 @@ export default function Navbar() {
                         paddingVertical: 8,
                         fontSize: 14,
                         color: "#374151",
-
                         backgroundColor: pressed ? "#f3f4f6" : "transparent",
                       }}
                     >
