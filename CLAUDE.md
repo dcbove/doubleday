@@ -27,8 +27,10 @@ Do not deploy directly. Deployment is handled by CI/CD (see `docs/INFRASTRUCTURE
 |------|-------------|
 | `docs/ARCHITECTURE.md` | Design rationale for key architectural choices (partition strategy, Iceberg, etc.) |
 | `docs/API.md` | REST API reference — domain layout, endpoints, auth, rate limiting |
+| `docs/DATALAKE.md` | Data lake layers, table definitions, S3 layout, Iceberg storage |
 | `docs/INFRASTRUCTURE.md` | Terraform modules, Lambda packaging, CI/CD deployment flow |
 | `docs/OPERATIONS.md` | Runbook for invoking Lambdas, running scripts, managing data sources |
+| `docs/PIPELINE.md` | Step Function orchestration, Lambda functions, data flow |
 | `docs/RELEASE.md` | iOS release guide — EAS builds, TestFlight, App Store submission |
 | `docs/STRIPE.md` | Stripe integration design — subscriptions, webhooks, entitlements |
 | `docs/TESTING.md` | Test commands, unit/integration test patterns |
@@ -97,11 +99,10 @@ Expo React Native app in `frontend/` targeting iOS, Android, and web from a sing
 
 ### Key Paths
 
-- Pipeline SQL templates: `sql/pipeline/` (bundled into Lambda zip as `doubleday/sql/`)
-- API SQL templates: `sql/api/` (bundled into Lambda zip as `doubleday/sql/api/`)
+- Pipeline SQL templates: `sql/pipeline/` (bundled into Lambda zip as `doubleday/sql/pipeline/`)
 - DDL: `sql/ddl/`
 - Shared utilities: `src/doubleday/util/` (`athena.py`, `entitlements.py`)
-- Lambda package: `terraform/modules/doubleday/package.tf` bundles `src/doubleday/**/*.py` + `sql/pipeline/*.sql` + `sql/api/*.sql` as code zip; pip deps (PyJWT, cryptography, stripe) are in a separate Lambda Layer
+- Lambda package: `terraform/modules/doubleday/package.tf` bundles `src/doubleday/**/*.py` + `sql/pipeline/*.sql` as code zip; pip deps (PyJWT, cryptography, stripe) are in a separate Lambda Layer
 - API code: `src/doubleday/api/`
 - Pipeline code: `src/doubleday/pipeline/`
 - Frontend routes: `frontend/app/` (Expo Router file-based)

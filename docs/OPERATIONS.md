@@ -1,6 +1,6 @@
 # Operations
 
-Runbook for invoking Lambdas, running scripts, and managing data sources. For project architecture and development setup, see [README.md](../README.md).
+Runbook for invoking Lambdas, running scripts, and managing data sources. For data model, see [DATALAKE.md](DATALAKE.md). For pipeline flow, see [PIPELINE.md](PIPELINE.md). For project overview, see [README.md](../README.md).
 
 ## Bronze Layer
 
@@ -93,6 +93,38 @@ bash scripts/gold_reload.sh 2024 prod   # specify environment
 
 This runs the three gold loads in dependency order, then loads both DynamoDB entity types.
 
+## Dimension Tables
+
+### Invoking the dimension_load Lambda
+
+```bash
+# Load teams for a season
+aws lambda invoke \
+  --function-name doubleday-dev-dimension-load \
+  --payload '{"dimension": "teams", "season": 2024}' \
+  --cli-binary-format raw-in-base64-out \
+  /dev/stdout
+
+# Load games for specific dates
+aws lambda invoke \
+  --function-name doubleday-dev-dimension-load \
+  --payload '{"dimension": "games", "season": 2024, "game_dates": ["2024-03-01", "2024-03-02"]}' \
+  --cli-binary-format raw-in-base64-out \
+  /dev/stdout
+```
+
+Valid dimensions: `teams`, `venues`, `games`, `umpires`, `players`. Use `force_download` to re-fetch from the MLB API (ignoring the bronze cache):
+
+```bash
+aws lambda invoke \
+  --function-name doubleday-dev-dimension-load \
+  --payload '{"dimension": "players", "season": 2024, "force_download": true}' \
+  --cli-binary-format raw-in-base64-out \
+  /dev/stdout
+```
+
+All five dimensions run automatically as a parallel step in the pipeline after silver load completes.
+
 ## DynamoDB Serving Layer
 
 ### Invoking the dynamodb_load Lambda
@@ -175,6 +207,23 @@ bash scripts/backfill_season.sh 2024 prod   # specify environment
 
 This generates all ~275 dates in the range and starts a single Step Function execution. Bronze load skips any dates already in S3 (unless `force_download` is set), so backfills are safe to re-run — only silver and gold do real work for previously downloaded data.
 
+## Fast Lambda Code Deploy
+
+To push code changes to Lambda without a full `terraform apply` (useful during development and integration test debugging):
+
+```bash
+# Single function
+./scripts/deploy_lambda_code.sh doubleday-dev-dimension-load
+
+# Multiple functions
+./scripts/deploy_lambda_code.sh doubleday-dev-dimension-load doubleday-dev-gold-load
+
+# All dev functions
+./scripts/deploy_lambda_code.sh -a
+```
+
+The script builds the shared Lambda package, uploads it to S3 with a content hash, and fires `update-function-code` for all target functions in parallel. Much faster than Terraform, which waits for each function to stabilize sequentially.
+
 ## Iceberg Introspection
 
 View snapshot history (each load creates a new snapshot):
@@ -201,16 +250,26 @@ If Iceberg table metadata is lost (e.g., S3 bucket contents deleted), Athena `DR
 # Delete orphaned Glue catalog entries
 aws glue delete-table --database-name doubleday_<env> --name silver_pitches_staging
 aws glue delete-table --database-name doubleday_<env> --name silver_pitches
+aws glue delete-table --database-name doubleday_<env> --name silver_teams
+aws glue delete-table --database-name doubleday_<env> --name silver_venues
+aws glue delete-table --database-name doubleday_<env> --name silver_games
+aws glue delete-table --database-name doubleday_<env> --name silver_umpires
+aws glue delete-table --database-name doubleday_<env> --name silver_players
 aws glue delete-table --database-name doubleday_<env> --name gold_pitches_shape_season
 aws glue delete-table --database-name doubleday_<env> --name gold_pitch_type_norm_stats
 aws glue delete-table --database-name doubleday_<env> --name gold_repertoire_shape_neighbors
 
 # Taint Terraform resources so DDL provisioners re-run
 cd terraform/environments/<env>
-terraform taint 'module.doubleday.module.glue.null_resource.silver_pitches_ddl'
-terraform taint 'module.doubleday.module.glue.null_resource.silver_pitches_staging_ddl'
-terraform taint 'module.doubleday.module.glue.null_resource.gold_pitches_shape_season_ddl'
-terraform taint 'module.doubleday.module.glue.null_resource.gold_pitch_type_norm_stats_ddl'
-terraform taint 'module.doubleday.module.glue.null_resource.gold_repertoire_shape_neighbors_ddl'
+terraform taint 'module.doubleday.module.glue.null_resource.silver_pitches_table'
+terraform taint 'module.doubleday.module.glue.null_resource.silver_pitches_staging_table'
+terraform taint 'module.doubleday.module.glue.null_resource.silver_teams_table'
+terraform taint 'module.doubleday.module.glue.null_resource.silver_venues_table'
+terraform taint 'module.doubleday.module.glue.null_resource.silver_games_table'
+terraform taint 'module.doubleday.module.glue.null_resource.silver_umpires_table'
+terraform taint 'module.doubleday.module.glue.null_resource.silver_players_table'
+terraform taint 'module.doubleday.module.glue.null_resource.gold_pitches_shape_season_table'
+terraform taint 'module.doubleday.module.glue.null_resource.gold_pitch_type_norm_stats_table'
+terraform taint 'module.doubleday.module.glue.null_resource.gold_repertoire_shape_neighbors_table'
 terraform apply -target=module.doubleday.module.glue
 ```

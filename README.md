@@ -183,142 +183,17 @@ This sets `core.hooksPath` to `.githooks/`, which is tracked in the repo — no 
 - Linting: ruff (`B`, `D`, `E`, `F`, `I`, `UP` rules). Formatting: black. Type checking: mypy.
 - See `CLAUDE.md` for AI-assisted development guidelines.
 
-## Data: Bronze Layer
+## Data Lake
 
-The bronze layer is raw, unmodified Statcast pitch-by-pitch CSV data downloaded from Baseball Savant. All columns are stored as strings. Data is Hive-style partitioned by season and game date for use with Athena and Glue.
+Bronze (raw CSV) → Silver (typed Iceberg) → Gold (aggregated Iceberg) → DynamoDB (serving). Dimension tables (teams, venues, games, umpires, players) enrich the pitch data with MLB API metadata.
 
-### Local layout
+See [DATALAKE.md](docs/DATALAKE.md) for table definitions, storage layout, and Iceberg details.
 
-```
-data/bronze/
-└── season=2025/
-    ├── game_date=2025-03-01/statcast.csv
-    ├── game_date=2025-03-02/statcast.csv
-    └── ...
-```
+## Pipeline
 
-## Data: Silver Layer
+A Standard Step Function orchestrates the full ETL: bronze download → silver load → dimension load → gold aggregation → DynamoDB serving.
 
-The silver layer is the canonical, typed source of truth for all game types (regular season, postseason, spring training, etc.). Data is stored as Apache Iceberg tables in Parquet format, partitioned by `(season, game_date)`. Deprecated columns from the bronze layer are dropped and all remaining columns are strongly typed.
-
-### Tables
-
-- **`silver_pitches`** — canonical pitch-by-pitch table. Partitioned by `(season, game_date)`. Each load replaces the full partition via DELETE + INSERT.
-- **`silver_pitches_staging`** — transient scratch table with the same schema plus `run_id` and `batch_id` columns. Used to stage one day's data at a time before replacing canonical.
-
-### Table creation
-
-Tables are created via Athena DDL, triggered automatically by `terraform apply` through `null_resource` provisioners. The SQL definitions live in:
-
-```
-sql/ddl/silver_pitches.sql
-sql/ddl/silver_pitches_staging.sql
-```
-
-Schema evolution (adding columns, changing types) should be done via Athena `ALTER TABLE` statements, not by modifying the Glue catalog directly — Iceberg manages its own metadata in S3.
-
-### Silver load pipeline
-
-The `silver_load` Lambda loads a single `(season, game_date)` partition from bronze to silver. The pipeline runs these steps in order:
-
-1. **Load partition** — INSERT from `bronze_statcast` into `silver_pitches_staging` with type casting, tagged with `run_id` and `batch_id`
-2. **Validate staging** — check for duplicate `(game_pk, at_bat_number, pitch_number)` keys; fail before canonical write if any found
-3. **Delete canonical** — DELETE the partition from `silver_pitches`
-4. **Insert canonical** — INSERT from staging into `silver_pitches`
-
-If validation fails, the canonical table is untouched. Staging cleanup is handled separately by the `clear_staging` Lambda after all silver loads complete (see [Pipeline Orchestration](#pipeline-orchestration)).
-
-### Isolation: `run_id` and `batch_id`
-
-Each staging row is tagged with two identifiers:
-
-- **`run_id`** (per-Lambda, UUID) — isolates each Lambda invocation's rows within staging. Validate and insert queries filter by `run_id`, so concurrent Lambda invocations on different partitions never interfere with each other in staging.
-- **`batch_id`** (per-Step Function execution, UUID) — groups all staging rows from one pipeline execution. The `clear_staging` Lambda uses `batch_id` to bulk-delete all staging data in a single query after the silver load map completes.
-
-**Concurrency constraint:** the DELETE + INSERT into canonical is not atomic. Two concurrent executions writing to the same `(season, game_date)` partition could interleave and produce duplicates. The Step Function ensures each partition is processed by exactly one Lambda within an execution. Overlapping executions on the same partition are an operational concern — don't run two backfills that overlap on the same dates concurrently.
-
-### S3 layout
-
-```
-s3://doubleday-<env>-lakehouse/silver/
-├── silver_pitches/            # Iceberg data + metadata
-└── silver_pitches_staging/    # Iceberg data + metadata
-```
-
-## Data: Gold Layer
-
-The gold layer contains precomputed analytical tables built from silver. Each table is an Iceberg table partitioned by `season` and loaded via partition overwrite (DELETE + INSERT). Gold tables are rebuilt from scratch whenever the pipeline runs — there is no incremental merge.
-
-### Tables
-
-- **`gold_pitches_shape_season`** — per-pitcher, per-pitch-type season aggregations including movement, velocity, spin, and usage metrics. Regular season games only (`game_type = 'R'`). Minimum 20-pitch threshold per pitch type.
-- **`gold_pitch_type_norm_stats`** — per-pitch-type normalization statistics (mean/stddev for velocity and movement) across all history. Used to z-score features for similarity calculations. Depends on `gold_pitches_shape_season`.
-- **`gold_repertoire_shape_neighbors`** — top-N cross-season repertoire shape similarity neighbors per pitcher-season profile. Depends on `gold_pitch_type_norm_stats`.
-
-### Table creation
-
-Tables are created via Athena DDL, triggered by `terraform apply`:
-
-```
-sql/ddl/gold_pitches_shape_season.sql
-sql/ddl/gold_pitch_type_norm_stats.sql
-sql/ddl/gold_repertoire_shape_neighbors.sql
-```
-
-### Gold load pipeline
-
-The `gold_load` Lambda loads a single gold table for a given season. It reads a pair of SQL files — a DELETE (clear the season partition) and an INSERT (rebuild from silver) — and executes each in order. Tables that need additional SQL template parameters (beyond `season`) receive them via `format_params` in the event payload.
-
-### S3 layout
-
-```
-s3://doubleday-<env>-lakehouse/gold/
-├── gold_pitches_shape_season/           # Iceberg data + metadata
-├── gold_pitch_type_norm_stats/          # Iceberg data + metadata
-└── gold_repertoire_shape_neighbors/     # Iceberg data + metadata
-```
-
-## Data: Serving Layer (DynamoDB)
-
-The serving layer is a DynamoDB single-table (`doubleday-{env}-serving`) populated from gold Iceberg tables. It provides single-digit millisecond reads for the API, replacing Athena queries. Items use composite keys: `PK = PITCHER#{id}#SEASON#{year}`, `SK = PITCH#{type}` or `NEIGHBOR#{rank:03d}`.
-
-The `dynamodb_load` Lambda reads a gold table via Athena, deletes existing items for that entity/season, then batch-writes fresh items. Both entity types run automatically as a parallel step in the pipeline after gold load completes.
-
-## Player Catalogs
-
-The catalog build pipeline generates static player catalog artifacts (`catalog.json` and `manifest.json`) for each season and role. These are published to the frontend S3 bucket and served via CloudFront. The SPA fetches the manifest through the authenticated API, then conditionally downloads the catalog blob for local search.
-
-### S3 layout
-
-```
-s3://doubleday-<env>-frontend/static/catalogs/
-├── pitchers/
-│   └── season=2024/
-│       ├── catalog.json      # Full player catalog blob
-│       └── manifest.json     # Metadata: etag, coverage, counts
-└── batters/
-    └── season=2024/
-        ├── catalog.json
-        └── manifest.json
-```
-
-## Pipeline Orchestration
-
-A Standard Step Function orchestrates the full ETL pipeline:
-
-1. **ValidateInput** — validate all game_date years match season, default `force_download` to `false`, generate `batch_id`
-2. **BronzeLoadMap** (concurrency 5) — invoke `bronze_load` for each date (download from Baseball Savant to S3)
-3. **SilverLoadMap** (concurrency 5) — invoke `silver_load` for each date, passing `batch_id`. Individual failures are caught and recorded to S3 (`failures/silver_load/{batch_id}/{game_date}.json`); the map continues processing remaining dates.
-4. **ClearStaging** — invoke `clear_staging` to bulk-delete all staging rows for this `batch_id`
-5. **GoldLoadShapeSeason** — invoke `gold_load` for `gold_pitches_shape_season`
-6. **GoldLoadNormStats** — invoke `gold_load` for `gold_pitch_type_norm_stats` (depends on shape season)
-7. **GoldLoadNeighbors** — invoke `gold_load` for `gold_repertoire_shape_neighbors` (depends on norm stats)
-8. **DynamoDBLoadParallel** — invoke `dynamodb_load` for pitches and neighbors concurrently
-9. **CatalogBuildMap** (concurrency 2) — invoke `catalog_build` for each role (pitchers, batters)
-10. **CheckFailures** — invoke `check_failures` to scan S3 for failure records from this `batch_id`
-11. **HasFailures** — if any silver loads failed, the execution ends with `SilverLoadPartialFailure`; otherwise succeeds
-
-See [OPERATIONS.md](docs/OPERATIONS.md) for Lambda invocation commands, scripts, and operational runbooks. See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for design rationale (partition overwrite vs MERGE, Standard vs Express Step Functions, etc.).
+See [PIPELINE.md](docs/PIPELINE.md) for Step Function flow, Lambda functions, and data processing details. See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for design rationale (partition overwrite vs MERGE, Standard vs Express Step Functions, etc.).
 
 ## Frontend
 

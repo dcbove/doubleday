@@ -1,6 +1,6 @@
 # Architecture Decisions
 
-Design rationale for key architectural choices in the Doubleday pipeline. For project overview and data model, see [README.md](../README.md).
+Design rationale for key architectural choices in the Doubleday pipeline. For data model and storage layout, see [DATALAKE.md](DATALAKE.md). For pipeline orchestration, see [PIPELINE.md](PIPELINE.md). For project overview, see [README.md](../README.md).
 
 ## Why partition overwrite (DELETE + INSERT) instead of MERGE
 

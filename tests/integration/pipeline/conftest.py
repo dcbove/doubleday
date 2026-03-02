@@ -22,7 +22,7 @@ DATABASE = "doubleday_dev"
 OUTPUT_BUCKET = "appleforge-athena-query-results"
 
 SEASON = 2024
-GAME_DATE = "2024-03-01"
+GAME_DATE = "2024-04-15"
 
 
 def athena_query(sql: str) -> str:
