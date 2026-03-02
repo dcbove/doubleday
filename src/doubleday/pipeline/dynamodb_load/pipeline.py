@@ -33,6 +33,12 @@ ENTITY_CONFIG: dict[str, _EntityConfig] = {
         "sk_builder": lambda row: f"NEIGHBOR#{int(row['rank']):03d}",
         "entity_type_value": "neighbor",
     },
+    "catalog": {
+        "sql_file": "pipeline/dynamodb_load_catalog.sql",
+        "pk_builder": lambda row: f"CATALOG#{row['role']}#SEASON#{row['season']}",
+        "sk_builder": lambda row: f"PLAYER#{row['player_id']}",
+        "entity_type_value": "catalog",
+    },
 }
 
 PITCHES_NUMBER_COLUMNS = {
@@ -60,6 +66,25 @@ NEIGHBORS_NUMBER_COLUMNS = {
     "neighbor_season",
     "rank",
     "similarity_score",
+}
+
+CATALOG_NUMBER_COLUMNS = {
+    "player_id",
+    "team_season_id",
+    "team_current_id",
+    "season",
+}
+
+NUMBER_COLUMNS: dict[str, set[str]] = {
+    "pitches": PITCHES_NUMBER_COLUMNS,
+    "neighbors": NEIGHBORS_NUMBER_COLUMNS,
+    "catalog": CATALOG_NUMBER_COLUMNS,
+}
+
+SK_PREFIX: dict[str, str] = {
+    "pitches": "PITCH#",
+    "neighbors": "NEIGHBOR#",
+    "catalog": "PLAYER#",
 }
 
 
@@ -147,14 +172,14 @@ def load_to_dynamodb(
         database: Glue database name.
         output_bucket: S3 bucket for Athena query results.
         sql_dir: Path to SQL template directory.
-        entity_type: ``"pitches"`` or ``"neighbors"``.
+        entity_type: ``"pitches"``, ``"neighbors"``, or ``"catalog"``.
         season: Season year to load.
 
     Returns:
         DynamoDBLoadResult with counts of records loaded and deleted.
     """
     config = ENTITY_CONFIG[entity_type]
-    number_columns = PITCHES_NUMBER_COLUMNS if entity_type == "pitches" else NEIGHBORS_NUMBER_COLUMNS
+    number_columns = NUMBER_COLUMNS[entity_type]
 
     sql = load_sql(sql_dir, config["sql_file"]).format(season=season)
     logger.info("Querying gold data", extra={"entity_type": entity_type, "season": season})
@@ -162,7 +187,7 @@ def load_to_dynamodb(
     rows = get_query_results(athena_client, execution_id)
     logger.info("Query returned rows", extra={"count": len(rows)})
 
-    sk_prefix = "PITCH#" if entity_type == "pitches" else "NEIGHBOR#"
+    sk_prefix = SK_PREFIX[entity_type]
     records_deleted = _delete_existing_items(table, sk_prefix, season)
 
     items = []

@@ -34,6 +34,7 @@ class TestLoadToDynamoDB:
         (pipeline_dir / "dynamodb_load_neighbors.sql").write_text(
             "SELECT * FROM gold_repertoire_shape_neighbors WHERE source_season = {season}"
         )
+        (pipeline_dir / "dynamodb_load_catalog.sql").write_text("SELECT * FROM gold_catalog WHERE season = {season}")
         return tmp_path
 
     @pytest.fixture()
@@ -176,6 +177,47 @@ class TestLoadToDynamoDB:
         batch = mock_table.batch_writer.return_value.__enter__.return_value
         item = batch.put_item.call_args.kwargs["Item"]
         assert "pitch_type" not in item
+
+    @patch("doubleday.pipeline.dynamodb_load.pipeline.get_query_results")
+    @patch("doubleday.pipeline.dynamodb_load.pipeline.run_query")
+    def test_loads_catalog_with_correct_pk_sk(self, mock_run, mock_results, sql_dir, mock_table):
+        """Catalog load builds correct PK/SK and coerces numeric columns."""
+        mock_run.return_value = "exec-1"
+        mock_results.return_value = [
+            {
+                "player_id": "605151",
+                "first_name": "Gerrit",
+                "last_name": "Cole",
+                "last_norm": "cole",
+                "bats": "R",
+                "throws": "R",
+                "position": "P",
+                "team_season_id": "147",
+                "team_season_abbr": "NYY",
+                "team_season_name": "New York Yankees",
+                "team_current_id": "147",
+                "team_current_abbr": "NYY",
+                "team_current_name": "New York Yankees",
+                "headshot_url": "https://example.com/605151.jpg",
+                "role": "pitcher",
+                "season": "2025",
+            }
+        ]
+
+        result = load_to_dynamodb(MagicMock(), mock_table, "db", "bucket", sql_dir, "catalog", 2025)
+
+        assert isinstance(result, DynamoDBLoadResult)
+        assert result.records_loaded == 1
+        assert result.records_deleted == 0
+
+        batch = mock_table.batch_writer.return_value.__enter__.return_value
+        item = batch.put_item.call_args.kwargs["Item"]
+        assert item["PK"] == "CATALOG#pitcher#SEASON#2025"
+        assert item["SK"] == "PLAYER#605151"
+        assert item["entity_type"] == "catalog"
+        assert item["player_id"] == Decimal("605151")
+        assert item["first_name"] == "Gerrit"
+        assert item["team_season_id"] == Decimal("147")
 
     @patch("doubleday.pipeline.dynamodb_load.pipeline.get_query_results")
     @patch("doubleday.pipeline.dynamodb_load.pipeline.run_query")
