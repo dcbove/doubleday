@@ -80,6 +80,13 @@ aws lambda invoke \
   --payload '{"table_name": "gold_repertoire_shape_neighbors", "season": 2024, "format_params": {"lambda": "0.4", "tau": "1"}}' \
   --cli-binary-format raw-in-base64-out \
   /dev/stdout
+
+# gold_catalog (depends on silver_pitches + silver_players + silver_teams)
+aws lambda invoke \
+  --function-name doubleday-dev-gold-load \
+  --payload '{"table_name": "gold_catalog", "season": 2024}' \
+  --cli-binary-format raw-in-base64-out \
+  /dev/stdout
 ```
 
 ### Reloading gold + DynamoDB for a season
@@ -258,6 +265,7 @@ aws glue delete-table --database-name doubleday_<env> --name silver_players
 aws glue delete-table --database-name doubleday_<env> --name gold_pitches_shape_season
 aws glue delete-table --database-name doubleday_<env> --name gold_pitch_type_norm_stats
 aws glue delete-table --database-name doubleday_<env> --name gold_repertoire_shape_neighbors
+aws glue delete-table --database-name doubleday_<env> --name gold_catalog
 
 # Taint Terraform resources so DDL provisioners re-run
 cd terraform/environments/<env>
@@ -271,5 +279,6 @@ terraform taint 'module.doubleday.module.glue.null_resource.silver_players_table
 terraform taint 'module.doubleday.module.glue.null_resource.gold_pitches_shape_season_table'
 terraform taint 'module.doubleday.module.glue.null_resource.gold_pitch_type_norm_stats_table'
 terraform taint 'module.doubleday.module.glue.null_resource.gold_repertoire_shape_neighbors_table'
+terraform taint 'module.doubleday.module.glue.null_resource.gold_catalog_table'
 terraform apply -target=module.doubleday.module.glue
 ```

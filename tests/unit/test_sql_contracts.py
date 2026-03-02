@@ -15,6 +15,7 @@ GOLD_TABLES = [
     "gold_pitches_shape_season",
     "gold_pitch_type_norm_stats",
     "gold_repertoire_shape_neighbors",
+    "gold_catalog",
 ]
 
 # Matches "api/foo.sql" or "pipeline/foo.sql" as a single string literal.

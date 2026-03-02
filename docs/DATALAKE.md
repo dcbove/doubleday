@@ -99,8 +99,9 @@ The gold layer contains precomputed analytical tables built from silver. Each ta
 | `gold_pitches_shape_season` | `silver_pitches` | Per-pitcher, per-pitch-type season aggregations (movement, velocity, spin, usage). Regular season only (`game_type = 'R'`), minimum 20-pitch threshold. |
 | `gold_pitch_type_norm_stats` | `gold_pitches_shape_season` | Per-pitch-type normalization statistics (mean/stddev for velocity and movement). Used to z-score features for similarity calculations. |
 | `gold_repertoire_shape_neighbors` | `gold_pitch_type_norm_stats`, `gold_pitches_shape_season` | Top-N cross-season repertoire shape similarity neighbors per pitcher-season profile. |
+| `gold_catalog` | `silver_pitches`, `silver_players`, `silver_teams` | Denormalized player catalog with team info for API serving. One row per player per role (pitcher/batter). |
 
-DDL: `sql/ddl/gold_pitches_shape_season.sql`, `sql/ddl/gold_pitch_type_norm_stats.sql`, `sql/ddl/gold_repertoire_shape_neighbors.sql`
+DDL: `sql/ddl/gold_pitches_shape_season.sql`, `sql/ddl/gold_pitch_type_norm_stats.sql`, `sql/ddl/gold_repertoire_shape_neighbors.sql`, `sql/ddl/gold_catalog.sql`
 
 SQL templates: each gold table has a pair of pipeline SQL files (`{table_name}_delete.sql` and `{table_name}_insert.sql`) in `sql/pipeline/`.
 
