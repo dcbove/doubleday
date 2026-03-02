@@ -90,20 +90,29 @@ variable "burst_limit" {
   default     = 100
 }
 
+variable "enable_stripe" {
+  description = "Whether to create Stripe integration resources (EventBridge, checkout, portal)"
+  type        = bool
+  default     = true
+}
+
 variable "stripe_secret_key" {
   description = "Stripe secret API key"
   type        = string
   sensitive   = true
+  default     = ""
 }
 
 variable "stripe_event_source_name" {
   description = "Stripe EventBridge partner event source name (e.g. aws.partner/stripe.com/<account_id>/<destination_id>)"
   type        = string
+  default     = ""
 }
 
 variable "stripe_price_id" {
   description = "Stripe Price ID for the subscription plan"
   type        = string
+  default     = ""
 }
 
 variable "frontend_url" {

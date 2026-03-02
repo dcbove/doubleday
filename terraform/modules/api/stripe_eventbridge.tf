@@ -4,14 +4,16 @@
 # The event source name is passed via var.stripe_event_source_name.
 
 resource "aws_cloudwatch_event_bus" "stripe" {
+  count             = var.enable_stripe ? 1 : 0
   name              = var.stripe_event_source_name
   event_source_name = var.stripe_event_source_name
 }
 
 # Single rule matching the 4 subscription lifecycle event types
 resource "aws_cloudwatch_event_rule" "stripe_entitlements" {
+  count          = var.enable_stripe ? 1 : 0
   name           = "${var.project}-${var.environment}-stripe-entitlements"
-  event_bus_name = aws_cloudwatch_event_bus.stripe.name
+  event_bus_name = aws_cloudwatch_event_bus.stripe[0].name
 
   event_pattern = jsonencode({
     source      = [{ "prefix" : "aws.partner/stripe.com" }]
@@ -25,15 +27,17 @@ resource "aws_cloudwatch_event_rule" "stripe_entitlements" {
 }
 
 resource "aws_cloudwatch_event_target" "stripe_entitlements" {
-  rule           = aws_cloudwatch_event_rule.stripe_entitlements.name
-  event_bus_name = aws_cloudwatch_event_bus.stripe.name
-  arn            = aws_lambda_function.stripe_events.arn
+  count          = var.enable_stripe ? 1 : 0
+  rule           = aws_cloudwatch_event_rule.stripe_entitlements[0].name
+  event_bus_name = aws_cloudwatch_event_bus.stripe[0].name
+  arn            = aws_lambda_function.stripe_events[0].arn
 }
 
 # --- Lambda function ---
 
 resource "aws_iam_role" "stripe_events" {
-  name = "${var.project}-${var.environment}-api-stripe-events"
+  count = var.enable_stripe ? 1 : 0
+  name  = "${var.project}-${var.environment}-api-stripe-events"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -50,8 +54,9 @@ resource "aws_iam_role" "stripe_events" {
 }
 
 resource "aws_iam_role_policy" "stripe_events" {
-  name = "${var.project}-${var.environment}-api-stripe-events"
-  role = aws_iam_role.stripe_events.id
+  count = var.enable_stripe ? 1 : 0
+  name  = "${var.project}-${var.environment}-api-stripe-events"
+  role  = aws_iam_role.stripe_events[0].id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -84,8 +89,9 @@ resource "aws_iam_role_policy" "stripe_events" {
 }
 
 resource "aws_lambda_function" "stripe_events" {
+  count            = var.enable_stripe ? 1 : 0
   function_name    = "${var.project}-${var.environment}-api-stripe-events"
-  role             = aws_iam_role.stripe_events.arn
+  role             = aws_iam_role.stripe_events[0].arn
   handler          = "doubleday.api.stripe_events.handler.handler"
   runtime          = "python3.12"
   timeout          = 30
@@ -105,9 +111,10 @@ resource "aws_lambda_function" "stripe_events" {
 }
 
 resource "aws_lambda_permission" "stripe_events" {
+  count         = var.enable_stripe ? 1 : 0
   statement_id  = "AllowEventBridgeInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.stripe_events.function_name
+  function_name = aws_lambda_function.stripe_events[0].function_name
   principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.stripe_entitlements.arn
+  source_arn    = aws_cloudwatch_event_rule.stripe_entitlements[0].arn
 }

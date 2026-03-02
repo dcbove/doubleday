@@ -15,6 +15,9 @@ export default function SubscriptionGate({ children }) {
     return (
       <View className="flex-1 items-center justify-center">
         <ActivityIndicator size="large" color="#6b7280" />
+        <Text className="mt-3 text-sm text-gray-500">
+          Checking subscription...
+        </Text>
       </View>
     );
   }

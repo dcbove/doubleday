@@ -3,12 +3,13 @@ data "aws_secretsmanager_secret_version" "google_oauth" {
 }
 
 data "aws_secretsmanager_secret_version" "stripe_api_keys" {
+  count     = var.enable_stripe ? 1 : 0
   secret_id = "${var.environment}/doubleday/stripe/api_keys"
 }
 
 locals {
   google_oauth         = jsondecode(data.aws_secretsmanager_secret_version.google_oauth.secret_string)
-  stripe_api_keys      = jsondecode(data.aws_secretsmanager_secret_version.stripe_api_keys.secret_string)
+  stripe_api_keys      = var.enable_stripe ? jsondecode(data.aws_secretsmanager_secret_version.stripe_api_keys[0].secret_string) : {}
   frontend_bucket_name = "${var.project}-${var.environment}-frontend"
   frontend_bucket_arn  = "arn:aws:s3:::${var.project}-${var.environment}-frontend"
 }
@@ -115,7 +116,8 @@ module "api" {
   hosted_zone_name       = var.hosted_zone_name
   frontend_bucket_name   = local.frontend_bucket_name
   frontend_bucket_arn    = local.frontend_bucket_arn
-  stripe_secret_key        = local.stripe_api_keys["secret_key"]
+  enable_stripe            = var.enable_stripe
+  stripe_secret_key        = var.enable_stripe ? local.stripe_api_keys["secret_key"] : ""
   stripe_event_source_name = var.stripe_event_source_name
   stripe_price_id          = var.stripe_price_id
   frontend_url           = "https://${var.frontend_domain_name}"

@@ -1,6 +1,6 @@
 # --- API Gateway resource tree ---
 
-# /subscriptions (shared parent for subscription endpoints)
+# /subscriptions (shared parent for subscription endpoints — always present)
 resource "aws_api_gateway_resource" "subscriptions" {
   rest_api_id = aws_api_gateway_rest_api.main.id
   parent_id   = aws_api_gateway_rest_api.main.root_resource_id
@@ -9,6 +9,7 @@ resource "aws_api_gateway_resource" "subscriptions" {
 
 # /subscriptions/checkout
 resource "aws_api_gateway_resource" "subscriptions_checkout" {
+  count       = var.enable_stripe ? 1 : 0
   rest_api_id = aws_api_gateway_rest_api.main.id
   parent_id   = aws_api_gateway_resource.subscriptions.id
   path_part   = "checkout"
@@ -17,8 +18,9 @@ resource "aws_api_gateway_resource" "subscriptions_checkout" {
 # --- POST /subscriptions/checkout ---
 
 resource "aws_api_gateway_method" "post_checkout" {
+  count            = var.enable_stripe ? 1 : 0
   rest_api_id      = aws_api_gateway_rest_api.main.id
-  resource_id      = aws_api_gateway_resource.subscriptions_checkout.id
+  resource_id      = aws_api_gateway_resource.subscriptions_checkout[0].id
   http_method      = "POST"
   authorization    = "CUSTOM"
   authorizer_id    = aws_api_gateway_authorizer.cognito.id
@@ -26,27 +28,30 @@ resource "aws_api_gateway_method" "post_checkout" {
 }
 
 resource "aws_api_gateway_integration" "post_checkout" {
+  count                   = var.enable_stripe ? 1 : 0
   rest_api_id             = aws_api_gateway_rest_api.main.id
-  resource_id             = aws_api_gateway_resource.subscriptions_checkout.id
-  http_method             = aws_api_gateway_method.post_checkout.http_method
+  resource_id             = aws_api_gateway_resource.subscriptions_checkout[0].id
+  http_method             = aws_api_gateway_method.post_checkout[0].http_method
   integration_http_method = "POST"
   type                    = "AWS_PROXY"
-  uri                     = aws_lambda_function.create_checkout.invoke_arn
+  uri                     = aws_lambda_function.create_checkout[0].invoke_arn
 }
 
 # --- OPTIONS /subscriptions/checkout (CORS preflight) ---
 
 resource "aws_api_gateway_method" "options_checkout" {
+  count         = var.enable_stripe ? 1 : 0
   rest_api_id   = aws_api_gateway_rest_api.main.id
-  resource_id   = aws_api_gateway_resource.subscriptions_checkout.id
+  resource_id   = aws_api_gateway_resource.subscriptions_checkout[0].id
   http_method   = "OPTIONS"
   authorization = "NONE"
 }
 
 resource "aws_api_gateway_integration" "options_checkout" {
+  count       = var.enable_stripe ? 1 : 0
   rest_api_id = aws_api_gateway_rest_api.main.id
-  resource_id = aws_api_gateway_resource.subscriptions_checkout.id
-  http_method = aws_api_gateway_method.options_checkout.http_method
+  resource_id = aws_api_gateway_resource.subscriptions_checkout[0].id
+  http_method = aws_api_gateway_method.options_checkout[0].http_method
   type        = "MOCK"
 
   request_templates = {
@@ -55,9 +60,10 @@ resource "aws_api_gateway_integration" "options_checkout" {
 }
 
 resource "aws_api_gateway_method_response" "options_checkout" {
+  count       = var.enable_stripe ? 1 : 0
   rest_api_id = aws_api_gateway_rest_api.main.id
-  resource_id = aws_api_gateway_resource.subscriptions_checkout.id
-  http_method = aws_api_gateway_method.options_checkout.http_method
+  resource_id = aws_api_gateway_resource.subscriptions_checkout[0].id
+  http_method = aws_api_gateway_method.options_checkout[0].http_method
   status_code = "200"
 
   response_parameters = {
@@ -72,10 +78,11 @@ resource "aws_api_gateway_method_response" "options_checkout" {
 }
 
 resource "aws_api_gateway_integration_response" "options_checkout" {
+  count       = var.enable_stripe ? 1 : 0
   rest_api_id = aws_api_gateway_rest_api.main.id
-  resource_id = aws_api_gateway_resource.subscriptions_checkout.id
-  http_method = aws_api_gateway_method.options_checkout.http_method
-  status_code = aws_api_gateway_method_response.options_checkout.status_code
+  resource_id = aws_api_gateway_resource.subscriptions_checkout[0].id
+  http_method = aws_api_gateway_method.options_checkout[0].http_method
+  status_code = aws_api_gateway_method_response.options_checkout[0].status_code
 
   response_parameters = {
     "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,Authorization'"
@@ -87,7 +94,8 @@ resource "aws_api_gateway_integration_response" "options_checkout" {
 # --- Lambda function ---
 
 resource "aws_iam_role" "create_checkout" {
-  name = "${var.project}-${var.environment}-api-create-checkout"
+  count = var.enable_stripe ? 1 : 0
+  name  = "${var.project}-${var.environment}-api-create-checkout"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -104,8 +112,9 @@ resource "aws_iam_role" "create_checkout" {
 }
 
 resource "aws_iam_role_policy" "create_checkout" {
-  name = "${var.project}-${var.environment}-api-create-checkout"
-  role = aws_iam_role.create_checkout.id
+  count = var.enable_stripe ? 1 : 0
+  name  = "${var.project}-${var.environment}-api-create-checkout"
+  role  = aws_iam_role.create_checkout[0].id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -139,8 +148,9 @@ resource "aws_iam_role_policy" "create_checkout" {
 }
 
 resource "aws_lambda_function" "create_checkout" {
+  count            = var.enable_stripe ? 1 : 0
   function_name    = "${var.project}-${var.environment}-api-create-checkout"
-  role             = aws_iam_role.create_checkout.arn
+  role             = aws_iam_role.create_checkout[0].arn
   handler          = "doubleday.api.create_checkout.handler.handler"
   runtime          = "python3.12"
   timeout          = 30
@@ -162,9 +172,10 @@ resource "aws_lambda_function" "create_checkout" {
 }
 
 resource "aws_lambda_permission" "create_checkout" {
+  count         = var.enable_stripe ? 1 : 0
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.create_checkout.function_name
+  function_name = aws_lambda_function.create_checkout[0].function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.main.execution_arn}/*"
 }

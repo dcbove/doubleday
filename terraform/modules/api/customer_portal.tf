@@ -2,6 +2,7 @@
 
 # /subscriptions/portal
 resource "aws_api_gateway_resource" "subscriptions_portal" {
+  count       = var.enable_stripe ? 1 : 0
   rest_api_id = aws_api_gateway_rest_api.main.id
   parent_id   = aws_api_gateway_resource.subscriptions.id
   path_part   = "portal"
@@ -10,8 +11,9 @@ resource "aws_api_gateway_resource" "subscriptions_portal" {
 # --- POST /subscriptions/portal ---
 
 resource "aws_api_gateway_method" "post_portal" {
+  count            = var.enable_stripe ? 1 : 0
   rest_api_id      = aws_api_gateway_rest_api.main.id
-  resource_id      = aws_api_gateway_resource.subscriptions_portal.id
+  resource_id      = aws_api_gateway_resource.subscriptions_portal[0].id
   http_method      = "POST"
   authorization    = "CUSTOM"
   authorizer_id    = aws_api_gateway_authorizer.cognito.id
@@ -19,27 +21,30 @@ resource "aws_api_gateway_method" "post_portal" {
 }
 
 resource "aws_api_gateway_integration" "post_portal" {
+  count                   = var.enable_stripe ? 1 : 0
   rest_api_id             = aws_api_gateway_rest_api.main.id
-  resource_id             = aws_api_gateway_resource.subscriptions_portal.id
-  http_method             = aws_api_gateway_method.post_portal.http_method
+  resource_id             = aws_api_gateway_resource.subscriptions_portal[0].id
+  http_method             = aws_api_gateway_method.post_portal[0].http_method
   integration_http_method = "POST"
   type                    = "AWS_PROXY"
-  uri                     = aws_lambda_function.customer_portal.invoke_arn
+  uri                     = aws_lambda_function.customer_portal[0].invoke_arn
 }
 
 # --- OPTIONS /subscriptions/portal (CORS preflight) ---
 
 resource "aws_api_gateway_method" "options_portal" {
+  count         = var.enable_stripe ? 1 : 0
   rest_api_id   = aws_api_gateway_rest_api.main.id
-  resource_id   = aws_api_gateway_resource.subscriptions_portal.id
+  resource_id   = aws_api_gateway_resource.subscriptions_portal[0].id
   http_method   = "OPTIONS"
   authorization = "NONE"
 }
 
 resource "aws_api_gateway_integration" "options_portal" {
+  count       = var.enable_stripe ? 1 : 0
   rest_api_id = aws_api_gateway_rest_api.main.id
-  resource_id = aws_api_gateway_resource.subscriptions_portal.id
-  http_method = aws_api_gateway_method.options_portal.http_method
+  resource_id = aws_api_gateway_resource.subscriptions_portal[0].id
+  http_method = aws_api_gateway_method.options_portal[0].http_method
   type        = "MOCK"
 
   request_templates = {
@@ -48,9 +53,10 @@ resource "aws_api_gateway_integration" "options_portal" {
 }
 
 resource "aws_api_gateway_method_response" "options_portal" {
+  count       = var.enable_stripe ? 1 : 0
   rest_api_id = aws_api_gateway_rest_api.main.id
-  resource_id = aws_api_gateway_resource.subscriptions_portal.id
-  http_method = aws_api_gateway_method.options_portal.http_method
+  resource_id = aws_api_gateway_resource.subscriptions_portal[0].id
+  http_method = aws_api_gateway_method.options_portal[0].http_method
   status_code = "200"
 
   response_parameters = {
@@ -65,10 +71,11 @@ resource "aws_api_gateway_method_response" "options_portal" {
 }
 
 resource "aws_api_gateway_integration_response" "options_portal" {
+  count       = var.enable_stripe ? 1 : 0
   rest_api_id = aws_api_gateway_rest_api.main.id
-  resource_id = aws_api_gateway_resource.subscriptions_portal.id
-  http_method = aws_api_gateway_method.options_portal.http_method
-  status_code = aws_api_gateway_method_response.options_portal.status_code
+  resource_id = aws_api_gateway_resource.subscriptions_portal[0].id
+  http_method = aws_api_gateway_method.options_portal[0].http_method
+  status_code = aws_api_gateway_method_response.options_portal[0].status_code
 
   response_parameters = {
     "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,Authorization'"
@@ -80,7 +87,8 @@ resource "aws_api_gateway_integration_response" "options_portal" {
 # --- Lambda function ---
 
 resource "aws_iam_role" "customer_portal" {
-  name = "${var.project}-${var.environment}-api-customer-portal"
+  count = var.enable_stripe ? 1 : 0
+  name  = "${var.project}-${var.environment}-api-customer-portal"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -97,8 +105,9 @@ resource "aws_iam_role" "customer_portal" {
 }
 
 resource "aws_iam_role_policy" "customer_portal" {
-  name = "${var.project}-${var.environment}-api-customer-portal"
-  role = aws_iam_role.customer_portal.id
+  count = var.enable_stripe ? 1 : 0
+  name  = "${var.project}-${var.environment}-api-customer-portal"
+  role  = aws_iam_role.customer_portal[0].id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -129,8 +138,9 @@ resource "aws_iam_role_policy" "customer_portal" {
 }
 
 resource "aws_lambda_function" "customer_portal" {
+  count            = var.enable_stripe ? 1 : 0
   function_name    = "${var.project}-${var.environment}-api-customer-portal"
-  role             = aws_iam_role.customer_portal.arn
+  role             = aws_iam_role.customer_portal[0].arn
   handler          = "doubleday.api.customer_portal.handler.handler"
   runtime          = "python3.12"
   timeout          = 30
@@ -151,9 +161,10 @@ resource "aws_lambda_function" "customer_portal" {
 }
 
 resource "aws_lambda_permission" "customer_portal" {
+  count         = var.enable_stripe ? 1 : 0
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.customer_portal.function_name
+  function_name = aws_lambda_function.customer_portal[0].function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_api_gateway_rest_api.main.execution_arn}/*"
 }

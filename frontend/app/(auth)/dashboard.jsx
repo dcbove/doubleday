@@ -51,7 +51,11 @@ export default function Dashboard() {
               loading={loading}
               error={error}
               search={search}
-              onSelect={() => {}}
+              onSelect={
+                isActive
+                  ? undefined
+                  : () => router.push("/subscription")
+              }
             />
           </View>
         </View>
