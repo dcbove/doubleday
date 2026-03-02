@@ -165,6 +165,7 @@ resource "aws_lambda_function" "query_pitches" {
     variables = {
       SERVING_TABLE_NAME           = var.serving_table_name
       ENTITLEMENTS_TABLE_NAME      = aws_dynamodb_table.entitlements.name
+      REQUIRE_SUBSCRIPTION         = tostring(var.enable_stripe)
       POWERTOOLS_METRICS_NAMESPACE = "Doubleday"
       POWERTOOLS_SERVICE_NAME      = "api_query_pitches"
     }
