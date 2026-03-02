@@ -78,20 +78,18 @@ resource "aws_api_gateway_deployment" "main" {
       aws_api_gateway_method.options_subscription_status,
       aws_api_gateway_integration.options_subscription_status,
     ]))
-    redeployment_stripe = sha1(jsonencode(
-      var.enable_stripe ? [
-        aws_api_gateway_resource.subscriptions_checkout,
-        aws_api_gateway_method.post_checkout,
-        aws_api_gateway_integration.post_checkout,
-        aws_api_gateway_method.options_checkout,
-        aws_api_gateway_integration.options_checkout,
-        aws_api_gateway_resource.subscriptions_portal,
-        aws_api_gateway_method.post_portal,
-        aws_api_gateway_integration.post_portal,
-        aws_api_gateway_method.options_portal,
-        aws_api_gateway_integration.options_portal,
-      ] : []
-    ))
+    redeployment_stripe = sha1(jsonencode([
+      aws_api_gateway_resource.subscriptions_checkout,
+      aws_api_gateway_method.post_checkout,
+      aws_api_gateway_integration.post_checkout,
+      aws_api_gateway_method.options_checkout,
+      aws_api_gateway_integration.options_checkout,
+      aws_api_gateway_resource.subscriptions_portal,
+      aws_api_gateway_method.post_portal,
+      aws_api_gateway_integration.post_portal,
+      aws_api_gateway_method.options_portal,
+      aws_api_gateway_integration.options_portal,
+    ]))
   }
 
   lifecycle {
