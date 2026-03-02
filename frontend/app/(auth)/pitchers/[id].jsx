@@ -34,13 +34,8 @@ export default function PitcherDetail() {
 
   const player = useMemo(() => {
     if (!catalog) return null;
-    return catalog.players.find((p) => p.id === pitcherId) || null;
+    return catalog.players.find((p) => p.player_id === pitcherId) || null;
   }, [catalog, pitcherId]);
-
-  const team = useMemo(() => {
-    if (!catalog || !player) return null;
-    return catalog.teams[String(player.team_season_id)] || null;
-  }, [catalog, player]);
 
   const sortedPitches = useMemo(() => {
     if (!pitches) return null;
@@ -73,10 +68,10 @@ export default function PitcherDetail() {
           />
           <View>
             <Text className="text-lg font-bold text-gray-900 sm:text-2xl">
-              {player.first} {player.last}
+              {player.first_name} {player.last_name}
             </Text>
             <Text className="text-xs text-gray-600 sm:text-sm">
-              {team?.abbr || "\u2014"} · {player.pos || "\u2014"} · B/T:{" "}
+              {player.team_season_abbr || "\u2014"} · {player.position || "\u2014"} · B/T:{" "}
               {player.bats}/{player.throws}
             </Text>
           </View>

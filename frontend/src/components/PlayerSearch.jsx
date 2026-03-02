@@ -45,11 +45,10 @@ export default function PlayerSearch({ catalog, loading, error, search, onSelect
           ) : (
             <View>
               {results.map((item, idx) => (
-                <View key={String(item.id)}>
+                <View key={String(item.player_id)}>
                   {idx > 0 && <View className="border-b border-gray-100" />}
                   <PlayerResult
                     player={item}
-                    teams={catalog.teams}
                     onSelect={
                       onSelect
                         ? (p) => {

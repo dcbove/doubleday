@@ -8,7 +8,7 @@ const DEFAULT_ROLE = "pitchers";
 const DEFAULT_SEASON = 2025;
 
 export default function Dashboard() {
-  const { catalog, manifest, loading, error, search } = useCatalog(
+  const { catalog, loading, error, search } = useCatalog(
     DEFAULT_ROLE,
     DEFAULT_SEASON,
   );
@@ -38,10 +38,9 @@ export default function Dashboard() {
             <Text className="text-lg font-bold text-white">
               Pitcher Analytics
             </Text>
-            {manifest && (
+            {catalog && (
               <Text className="mt-1 text-xs text-gray-400">
-                {manifest.counts.players} players · Data through{" "}
-                {manifest.coverage.last_game_date_seen}
+                {catalog.players.length} players
               </Text>
             )}
           </View>

@@ -55,31 +55,21 @@ export default function PitcherCompare() {
 
   const playerA = useMemo(() => {
     if (!catalogA) return null;
-    return catalogA.players.find((p) => p.id === pitcherAId) || null;
+    return catalogA.players.find((p) => p.player_id === pitcherAId) || null;
   }, [catalogA, pitcherAId]);
-
-  const teamA = useMemo(() => {
-    if (!catalogA || !playerA) return null;
-    return catalogA.teams[String(playerA.team_season_id)] || null;
-  }, [catalogA, playerA]);
 
   const playerB = useMemo(() => {
     if (pitcherBPlayer) {
       if (!catalogB) return pitcherBPlayer;
       return (
-        catalogB.players.find((p) => p.id === pitcherBId) || pitcherBPlayer
+        catalogB.players.find((p) => p.player_id === pitcherBId) || pitcherBPlayer
       );
     }
     if (pitcherBId && catalogB) {
-      return catalogB.players.find((p) => p.id === pitcherBId) || null;
+      return catalogB.players.find((p) => p.player_id === pitcherBId) || null;
     }
     return null;
   }, [catalogB, pitcherBId, pitcherBPlayer]);
-
-  const teamB = useMemo(() => {
-    if (!catalogB || !playerB) return null;
-    return catalogB.teams[String(playerB.team_season_id)] || null;
-  }, [catalogB, playerB]);
 
   const sortedA = useMemo(() => {
     if (!pitchesA) return null;
@@ -92,7 +82,7 @@ export default function PitcherCompare() {
   }, [pitchesB]);
 
   function handleSelectB(player) {
-    setPitcherBId(player.id);
+    setPitcherBId(player.player_id);
     setPitcherBPlayer(player);
   }
 
@@ -122,11 +112,11 @@ export default function PitcherCompare() {
             <View className="flex-row items-center gap-1.5">
               <View className="h-3 w-3 rounded-full bg-gray-500" />
               <Text className="text-base font-bold text-gray-900 sm:text-lg">
-                {playerA.first} {playerA.last}
+                {playerA.first_name} {playerA.last_name}
               </Text>
             </View>
             <Text className="text-xs text-gray-600">
-              {teamA?.abbr || "\u2014"} · {playerA.pos || "\u2014"}
+              {playerA.team_season_abbr || "\u2014"} · {playerA.position || "\u2014"}
             </Text>
           </View>
         </View>
@@ -169,11 +159,11 @@ export default function PitcherCompare() {
               <View className="flex-row items-center gap-1.5">
                 <View className="h-3 w-3 rounded-full border-2 border-gray-500 bg-white" />
                 <Text className="text-base font-bold text-gray-900 sm:text-lg">
-                  {playerB.first} {playerB.last}
+                  {playerB.first_name} {playerB.last_name}
                 </Text>
               </View>
               <Text className="text-xs text-gray-600">
-                {teamB?.abbr || "\u2014"} · {playerB.pos || "\u2014"}
+                {playerB.team_season_abbr || "\u2014"} · {playerB.position || "\u2014"}
               </Text>
             </View>
             <Pressable
