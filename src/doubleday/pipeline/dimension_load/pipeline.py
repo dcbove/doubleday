@@ -453,6 +453,32 @@ def _load_games(
     if not all_rows:
         return DimensionLoadResult(records_loaded=0, bronze_cached=any_cached)
 
+    # Deduplicate by game_pk. Postponed/suspended games can appear under
+    # multiple dates from the schedule API. Keep the row with scores (the
+    # completed game); if both have scores, keep the later game_date.
+    seen: dict[int, dict] = {}
+    for row in all_rows:
+        gpk = row["game_pk"]
+        existing = seen.get(gpk)
+        if existing is None:
+            seen[gpk] = row
+        else:
+            row_has_scores = bool(row.get("away_score") or row.get("home_score"))
+            existing_has_scores = bool(existing.get("away_score") or existing.get("home_score"))
+            if row_has_scores and not existing_has_scores:
+                seen[gpk] = row
+            elif row_has_scores and existing_has_scores:
+                if row.get("game_date", "") > existing.get("game_date", ""):
+                    seen[gpk] = row
+
+    deduped = list(seen.values())
+    if len(deduped) < len(all_rows):
+        logger.info(
+            "Deduplicated games by game_pk",
+            extra={"before": len(all_rows), "after": len(deduped)},
+        )
+    all_rows = deduped
+
     # Delete only the dates we're loading
     dates_str = ", ".join(f"'{d}'" for d in game_dates)
     where = f"season = {season} AND official_date IN ({dates_str})"
@@ -561,8 +587,8 @@ def _load_umpires(
     else:
         logger.info("All umpire IDs already in bronze cache")
 
-    # Build rows from cache, filtered to current IDs
-    rows = [cache[str(uid)] for uid in current_ids if str(uid) in cache]
+    # Rebuild silver from the full bronze cache (not just current_ids)
+    rows = list(cache.values())
 
     _delete_partition(athena_client, database, output_bucket, "silver_umpires", f"season = {season}")
     total = _insert_rows(athena_client, database, output_bucket, "silver_umpires", UMPIRES_COLUMNS, rows)
@@ -742,8 +768,8 @@ def _load_players(
     else:
         logger.info("All player IDs already in bronze cache")
 
-    # Build rows from cache, filtered to current IDs
-    rows = [cache[str(pid)] for pid in current_ids if str(pid) in cache]
+    # Rebuild silver from the full bronze cache (not just current_ids)
+    rows = list(cache.values())
 
     _delete_partition(athena_client, database, output_bucket, "silver_players", f"season = {season}")
     total = _insert_rows(athena_client, database, output_bucket, "silver_players", PLAYERS_COLUMNS, rows)

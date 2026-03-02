@@ -37,7 +37,6 @@ ValidateInput → BronzeLoadMap → SilverLoadMap → ClearStaging
 | `dimension_load` | `pipeline/dimension_load/` | Two-phase dimension load (MLB API → bronze cache → silver) |
 | `gold_load` | `pipeline/gold_load/` | Parameterized gold table rebuild (DELETE + INSERT from SQL templates) |
 | `dynamodb_load` | `pipeline/dynamodb_load/` | Load gold table data into DynamoDB serving table |
-| `catalog_build` | `pipeline/catalog_build/` | Build player catalog JSON artifacts for S3/CloudFront |
 | `check_failures` | `pipeline/check_failures/` | Scan S3 for silver load failure records |
 
 ## Silver Load Pipeline

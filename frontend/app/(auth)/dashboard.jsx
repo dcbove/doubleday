@@ -61,13 +61,13 @@ export default function Dashboard() {
 
         <View className="min-w-[300px] flex-1 rounded-xl border border-gray-200 bg-white shadow-sm">
           <View className="rounded-t-xl bg-gray-900 px-5 py-4">
-            <Text className="text-lg font-bold text-white">Betting Buddy</Text>
+            <Text className="text-lg font-bold text-white">Weather Analytics</Text>
             <Text className="mt-1 text-xs text-gray-400">Coming soon</Text>
           </View>
           <View className="items-center justify-center px-5 py-12">
-            <Text className="text-3xl">🎰</Text>
+            <Text className="text-3xl">🌦️</Text>
             <Text className="mt-3 text-center text-sm text-gray-400">
-              AI-powered betting insights are on the way.
+              Weather impact analysis is on the way.
             </Text>
           </View>
         </View>

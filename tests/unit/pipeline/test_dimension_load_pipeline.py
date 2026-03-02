@@ -612,6 +612,155 @@ class TestLoadGames:
         assert "'2025-06-15'" in where
         assert "'2025-06-16'" in where
 
+    @patch("doubleday.pipeline.dimension_load.pipeline._insert_rows")
+    @patch("doubleday.pipeline.dimension_load.pipeline._delete_partition")
+    def test_deduplicates_by_game_pk_keeps_scored_row(self, mock_delete, mock_insert):
+        """Postponed game appears on two dates; row with scores wins."""
+        mock_delete.return_value = "exec-1"
+        mock_insert.return_value = 1
+
+        # Date 1: postponed stub (no scores)
+        stub_row = json.dumps(
+            [
+                {
+                    "game_pk": 777839,
+                    "game_type": "R",
+                    "game_date": "2025-04-06",
+                    "official_date": "2025-04-06",
+                    "venue_id": 3313,
+                    "day_night": "night",
+                    "away_team_id": 111,
+                    "home_team_id": 147,
+                    "away_score": None,
+                    "home_score": None,
+                    "hp_umpire_id": None,
+                    "hp_umpire_name": None,
+                    "season": 2025,
+                }
+            ]
+        )
+        # Date 2: completed game (has scores)
+        scored_row = json.dumps(
+            [
+                {
+                    "game_pk": 777839,
+                    "game_type": "R",
+                    "game_date": "2025-08-09",
+                    "official_date": "2025-08-09",
+                    "venue_id": 3313,
+                    "day_night": "night",
+                    "away_team_id": 111,
+                    "home_team_id": 147,
+                    "away_score": 4,
+                    "home_score": 7,
+                    "hp_umpire_id": 427542,
+                    "hp_umpire_name": "Pat Hoberg",
+                    "season": 2025,
+                }
+            ]
+        )
+
+        s3 = MagicMock()
+        s3.head_object.return_value = {}
+        s3.get_object.side_effect = [
+            {"Body": MagicMock(read=MagicMock(return_value=stub_row.encode()))},
+            {"Body": MagicMock(read=MagicMock(return_value=scored_row.encode()))},
+        ]
+        athena = MagicMock()
+
+        load_dimension(
+            s3,
+            athena,
+            "bucket",
+            "db",
+            "out",
+            "games",
+            2025,
+            game_dates=["2025-04-06", "2025-08-09"],
+        )
+
+        # Only 1 row inserted (deduped)
+        insert_call = mock_insert.call_args[0]
+        rows = insert_call[5]  # rows positional arg
+        assert len(rows) == 1
+        assert rows[0]["game_pk"] == 777839
+        assert rows[0]["away_score"] == 4
+        assert rows[0]["game_date"] == "2025-08-09"
+
+    @patch("doubleday.pipeline.dimension_load.pipeline._insert_rows")
+    @patch("doubleday.pipeline.dimension_load.pipeline._delete_partition")
+    def test_dedup_both_scored_keeps_later_date(self, mock_delete, mock_insert):
+        """Suspended game with scores on both dates keeps later game_date."""
+        mock_delete.return_value = "exec-1"
+        mock_insert.return_value = 1
+
+        # Date 1: started (partial scores)
+        early_row = json.dumps(
+            [
+                {
+                    "game_pk": 777861,
+                    "game_type": "R",
+                    "game_date": "2025-04-07",
+                    "official_date": "2025-04-07",
+                    "venue_id": 3313,
+                    "day_night": "night",
+                    "away_team_id": 111,
+                    "home_team_id": 147,
+                    "away_score": 2,
+                    "home_score": 3,
+                    "hp_umpire_id": 427542,
+                    "hp_umpire_name": "Pat Hoberg",
+                    "season": 2025,
+                }
+            ]
+        )
+        # Date 2: resumed and completed (final scores)
+        late_row = json.dumps(
+            [
+                {
+                    "game_pk": 777861,
+                    "game_type": "R",
+                    "game_date": "2025-06-10",
+                    "official_date": "2025-04-07",
+                    "venue_id": 3313,
+                    "day_night": "night",
+                    "away_team_id": 111,
+                    "home_team_id": 147,
+                    "away_score": 5,
+                    "home_score": 6,
+                    "hp_umpire_id": 427542,
+                    "hp_umpire_name": "Pat Hoberg",
+                    "season": 2025,
+                }
+            ]
+        )
+
+        s3 = MagicMock()
+        s3.head_object.return_value = {}
+        s3.get_object.side_effect = [
+            {"Body": MagicMock(read=MagicMock(return_value=early_row.encode()))},
+            {"Body": MagicMock(read=MagicMock(return_value=late_row.encode()))},
+        ]
+        athena = MagicMock()
+
+        load_dimension(
+            s3,
+            athena,
+            "bucket",
+            "db",
+            "out",
+            "games",
+            2025,
+            game_dates=["2025-04-07", "2025-06-10"],
+        )
+
+        insert_call = mock_insert.call_args[0]
+        rows = insert_call[5]  # rows positional arg
+        assert len(rows) == 1
+        assert rows[0]["game_pk"] == 777861
+        assert rows[0]["away_score"] == 5
+        assert rows[0]["game_date"] == "2025-06-10"
+
 
 # ---------------------------------------------------------------------------
 # Umpires loader tests
@@ -758,6 +907,47 @@ class TestLoadUmpires:
         assert result.bronze_cached is True
         # No put_object call (cache unchanged)
         s3.put_object.assert_not_called()
+
+    @patch("doubleday.pipeline.dimension_load.pipeline._insert_rows")
+    @patch("doubleday.pipeline.dimension_load.pipeline._delete_partition")
+    @patch("doubleday.pipeline.dimension_load.pipeline.get_query_results")
+    @patch("doubleday.pipeline.dimension_load.pipeline.run_query")
+    def test_inserts_full_cache_not_just_current_ids(
+        self,
+        mock_run,
+        mock_results,
+        mock_delete,
+        mock_insert,
+    ):
+        """Silver INSERT uses the full bronze cache, not just date-scoped IDs.
+
+        Regression test: a daily run discovers only 1 umpire from that date,
+        but the cache has 3 from prior runs. All 3 must be inserted into silver.
+        """
+        mock_run.return_value = "exec-1"
+        # Daily run only discovers 1 umpire
+        mock_results.return_value = [{"hp_umpire_id": "427542"}]
+        mock_insert.return_value = 3
+
+        s3 = MagicMock()
+        s3.head_object.return_value = {}
+        # Cache has 3 umpires from prior runs
+        existing_cache = {
+            "427542": {"umpire_id": 427542, "full_name": "Pat Hoberg", "season": 2025},
+            "427543": {"umpire_id": 427543, "full_name": "Angel Hernandez", "season": 2025},
+            "427544": {"umpire_id": 427544, "full_name": "CB Bucknor", "season": 2025},
+        }
+        s3.get_object.return_value = {
+            "Body": MagicMock(read=MagicMock(return_value=json.dumps(existing_cache).encode("utf-8"))),
+        }
+        athena = MagicMock()
+
+        load_dimension(s3, athena, "bucket", "db", "out", "umpires", 2025, game_dates=["2025-06-15"])
+
+        # _insert_rows should receive all 3 cache entries, not just the 1 current ID
+        insert_call = mock_insert.call_args
+        rows = insert_call[0][5]  # rows positional arg
+        assert len(rows) == 3
 
     @patch("doubleday.pipeline.dimension_load.pipeline._insert_rows")
     @patch("doubleday.pipeline.dimension_load.pipeline._delete_partition")
@@ -1058,3 +1248,77 @@ class TestLoadPlayers:
 
         first_sql = mock_run.call_args_list[0][0][1]
         assert "game_date IN (DATE '2025-06-15')" in first_sql
+
+    @patch("doubleday.pipeline.dimension_load.pipeline._insert_rows")
+    @patch("doubleday.pipeline.dimension_load.pipeline._delete_partition")
+    @patch("doubleday.pipeline.dimension_load.pipeline.get_query_results")
+    @patch("doubleday.pipeline.dimension_load.pipeline.run_query")
+    def test_inserts_full_cache_not_just_current_ids(
+        self,
+        mock_run,
+        mock_results,
+        mock_delete,
+        mock_insert,
+    ):
+        """Silver INSERT uses the full bronze cache, not just date-scoped IDs.
+
+        Regression test: a daily run discovers only 1 player from that date,
+        but the cache has 3 from prior runs. All 3 must be inserted into silver.
+        """
+        mock_run.return_value = "exec-1"
+        # Daily run only discovers 1 player
+        mock_results.return_value = [{"player_id": "660271"}]
+        mock_insert.return_value = 3
+
+        s3 = MagicMock()
+        s3.head_object.return_value = {}
+        # Cache has 3 players from prior runs
+        existing_cache = {
+            "660271": {
+                "player_id": 660271,
+                "first_name": "Shohei",
+                "last_name": "Ohtani",
+                "last_norm": "ohtani",
+                "bats": "L",
+                "throws": "R",
+                "position": "DH",
+                "current_team_id": 119,
+                "headshot_url": "https://example.com/660271.png",
+                "season": 2025,
+            },
+            "592450": {
+                "player_id": 592450,
+                "first_name": "Aaron",
+                "last_name": "Judge",
+                "last_norm": "judge",
+                "bats": "R",
+                "throws": "R",
+                "position": "RF",
+                "current_team_id": 147,
+                "headshot_url": "https://example.com/592450.png",
+                "season": 2025,
+            },
+            "545361": {
+                "player_id": 545361,
+                "first_name": "Mike",
+                "last_name": "Trout",
+                "last_norm": "trout",
+                "bats": "R",
+                "throws": "R",
+                "position": "CF",
+                "current_team_id": 108,
+                "headshot_url": "https://example.com/545361.png",
+                "season": 2025,
+            },
+        }
+        s3.get_object.return_value = {
+            "Body": MagicMock(read=MagicMock(return_value=json.dumps(existing_cache).encode("utf-8"))),
+        }
+        athena = MagicMock()
+
+        load_dimension(s3, athena, "bucket", "db", "out", "players", 2025, game_dates=["2025-06-15"])
+
+        # _insert_rows should receive all 3 cache entries, not just the 1 current ID
+        insert_call = mock_insert.call_args
+        rows = insert_call[0][5]  # rows positional arg
+        assert len(rows) == 3

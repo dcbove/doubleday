@@ -21,7 +21,8 @@ s3://doubleday-<env>-lakehouse/
 └── gold/                         # Analytical Iceberg tables
     ├── gold_pitches_shape_season/
     ├── gold_pitch_type_norm_stats/
-    └── gold_repertoire_shape_neighbors/
+    ├── gold_repertoire_shape_neighbors/
+    └── gold_catalog/
 ```
 
 All silver and gold tables are Apache Iceberg with Parquet storage. Table DDL lives in `sql/ddl/` and is applied automatically by `terraform apply` via `null_resource` provisioners. Schema evolution (adding columns, changing types) should be done via Athena `ALTER TABLE` statements, not by modifying the Glue catalog directly — Iceberg manages its own metadata in S3.
@@ -113,8 +114,9 @@ A single DynamoDB table (`doubleday-{env}-serving`) is populated from gold Icebe
 |--------|----|----|
 | Pitches | `PITCHER#{id}#SEASON#{year}` | `PITCH#{type}` |
 | Neighbors | `PITCHER#{id}#SEASON#{year}` | `NEIGHBOR#{rank:03d}` |
+| Catalog | `CATALOG#{role}#SEASON#{year}` | `PLAYER#{player_id}` |
 
-The `dynamodb_load` Lambda reads a gold table via Athena, deletes existing items for that entity/season, then batch-writes fresh items. Both entity types run automatically as a parallel step in the pipeline after gold load completes.
+The `dynamodb_load` Lambda reads a gold table via Athena, deletes existing items for that entity/season, then batch-writes fresh items. All three entity types run automatically as a parallel step in the pipeline after gold load completes.
 
 ## Iceberg Introspection
 

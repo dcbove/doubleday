@@ -16,7 +16,7 @@ terraform apply
 | `doubleday` | Composition module — wires all child modules, builds the shared Lambda zip |
 | `pipeline/s3` | Lakehouse S3 bucket |
 | `pipeline/glue` | Glue database, bronze/silver/gold table DDL |
-| `pipeline/lambda` | Pipeline Lambda functions (validate_input, bronze_load, silver_load, gold_load, dimension_load, dynamodb_load, catalog_build, clear_staging, check_failures), IAM roles |
+| `pipeline/lambda` | Pipeline Lambda functions (validate_input, bronze_load, silver_load, gold_load, dimension_load, dynamodb_load, clear_staging, check_failures), IAM roles |
 | `pipeline/step_function` | Pipeline Step Function, IAM role, CloudWatch logging |
 | `pipeline/schedule` | EventBridge Scheduler, daily_trigger Lambda (9 AM ET) |
 | `pipeline/dashboard` | CloudWatch dashboard for pipeline metrics |

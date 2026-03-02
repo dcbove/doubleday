@@ -32,7 +32,6 @@ resource "aws_iam_role_policy" "pipeline" {
           var.gold_load_function_arn,
           var.clear_staging_function_arn,
           var.check_failures_function_arn,
-          var.catalog_build_function_arn,
           var.dynamodb_load_function_arn,
           var.dimension_load_function_arn,
         ]

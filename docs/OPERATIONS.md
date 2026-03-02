@@ -152,38 +152,7 @@ aws lambda invoke \
   /dev/stdout
 ```
 
-Both entity types run automatically as a parallel step in the pipeline after gold load completes.
-
-## Player Catalogs
-
-### Invoking the catalog_build Lambda
-
-```bash
-aws lambda invoke \
-  --function-name doubleday-dev-catalog-build \
-  --cli-binary-format raw-in-base64-out \
-  --payload '{"season": 2024, "role": "pitchers"}' \
-  /dev/stdout
-```
-
-Use `force_rebuild` to re-fetch all enrichment data from the MLB API (ignoring the cache):
-
-```bash
-aws lambda invoke \
-  --function-name doubleday-dev-catalog-build \
-  --cli-binary-format raw-in-base64-out \
-  --payload '{"season": 2024, "role": "pitchers", "force_rebuild": true}' \
-  /dev/stdout
-```
-
-### Rebuilding catalogs for a season
-
-```bash
-bash scripts/catalog_rebuild.sh 2024        # defaults to dev
-bash scripts/catalog_rebuild.sh 2024 prod   # specify environment
-```
-
-This rebuilds both pitchers and batters catalogs for the given season.
+All three entity types run automatically as a parallel step in the pipeline after gold load completes.
 
 ## Pipeline Orchestration
 
@@ -232,6 +201,19 @@ To push code changes to Lambda without a full `terraform apply` (useful during d
 ```
 
 The script builds the shared Lambda package, uploads it to S3 with a content hash, and fires `update-function-code` for all target functions in parallel. Much faster than Terraform, which waits for each function to stabilize sequentially.
+
+## Diagnostics
+
+### Table record counts
+
+Print record counts per season for every bronze, silver, gold, and DynamoDB table. Useful for diagnosing incomplete backfills or verifying data after a pipeline run.
+
+```bash
+bash scripts/table_counts.sh          # defaults to dev
+bash scripts/table_counts.sh prod     # specify environment
+```
+
+All Athena queries run in parallel for speed. DynamoDB counts use a full table scan per entity type, which may take a minute on large tables.
 
 ## Iceberg Introspection
 

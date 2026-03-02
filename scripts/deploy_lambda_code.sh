@@ -31,7 +31,6 @@ ALL_FUNCTIONS=(
   doubleday-dev-check-failures
   doubleday-dev-gold-load
   doubleday-dev-dynamodb-load
-  doubleday-dev-catalog-build
   doubleday-dev-dimension-load
   doubleday-dev-daily-trigger
   doubleday-dev-api-authorizer
