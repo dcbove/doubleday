@@ -31,8 +31,9 @@ def run_query(client, sql: str, database: str, output_bucket: str) -> str:
             if state in ("FAILED", "CANCELLED"):
                 reason = result["QueryExecution"]["Status"].get("StateChangeReason", "Unknown")
 
-                # Retry only Iceberg commit conflicts
-                if "ICEBERG_COMMIT_ERROR" in reason and attempt < max_attempts:
+                # Retry Iceberg commit conflicts (reported under different error codes)
+                is_commit_conflict = "ICEBERG_COMMIT_ERROR" in reason or "concurrent updates" in reason
+                if is_commit_conflict and attempt < max_attempts:
                     # exponential backoff + jitter
                     base = min(30.0, 1.0 * (2 ** (attempt - 1)))
                     logger.warning(

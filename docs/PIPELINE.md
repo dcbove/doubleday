@@ -8,24 +8,23 @@ A Standard Step Function orchestrates the full ETL pipeline:
 
 ```
 ValidateInput → BronzeLoadMap → SilverLoadMap → ClearStaging
-→ GoldLoadShapeSeason → GoldLoadNormStats → GoldLoadNeighbors
-→ DynamoDBLoadParallel [pitches, neighbors]
-→ CatalogBuildMap [pitchers, batters]
+→ DimensionLoadParallel [teams, venues, games, umpires, players]
+→ GoldLoadShapeSeason → GoldLoadNormStats → GoldLoadNeighbors → GoldLoadCatalog
+→ DynamoDBLoadParallel [pitches, neighbors, catalog]
 → CheckFailures → Done
 ```
-
-> **Planned**: `DimensionLoadParallel` (teams, venues, games, umpires, players) will be added after ClearStaging. The `dimension_load` Lambda exists and can be invoked manually, but is not yet wired into the Step Function.
 
 1. **ValidateInput** — validate all `game_date` years match `season`, default `force_download` to `false`, generate `batch_id`
 2. **BronzeLoadMap** (concurrency 5) — invoke `bronze_load` for each date (download from Baseball Savant to S3)
 3. **SilverLoadMap** (concurrency 5) — invoke `silver_load` for each date, passing `batch_id`. Individual failures are caught and recorded to S3 (`failures/silver_load/{batch_id}/{game_date}.json`); the map continues processing remaining dates.
 4. **ClearStaging** — invoke `clear_staging` to bulk-delete all staging rows for this `batch_id`
-5. **GoldLoadShapeSeason** — invoke `gold_load` for `gold_pitches_shape_season`
-6. **GoldLoadNormStats** — invoke `gold_load` for `gold_pitch_type_norm_stats` (depends on shape season)
-7. **GoldLoadNeighbors** — invoke `gold_load` for `gold_repertoire_shape_neighbors` (depends on norm stats)
-8. **DynamoDBLoadParallel** — invoke `dynamodb_load` for pitches and neighbors concurrently
-9. **CatalogBuildMap** (concurrency 2) — invoke `catalog_build` for each role (pitchers, batters)
-10. **CheckFailures** — scan S3 for failure records from this `batch_id`. If any silver loads failed, the execution ends with `SilverLoadPartialFailure`; otherwise succeeds.
+5. **DimensionLoadParallel** — invoke `dimension_load` for all five dimensions concurrently (teams, venues, games, umpires, players). Games, umpires, and players receive `game_dates` for date-scoped loading.
+6. **GoldLoadShapeSeason** — invoke `gold_load` for `gold_pitches_shape_season`
+7. **GoldLoadNormStats** — invoke `gold_load` for `gold_pitch_type_norm_stats` (depends on shape season)
+8. **GoldLoadNeighbors** — invoke `gold_load` for `gold_repertoire_shape_neighbors` (depends on norm stats)
+9. **GoldLoadCatalog** — invoke `gold_load` for `gold_catalog` (depends on silver pitches, players, and teams)
+10. **DynamoDBLoadParallel** — invoke `dynamodb_load` for pitches, neighbors, and catalog concurrently
+11. **CheckFailures** — scan S3 for failure records from this `batch_id`. If any silver loads failed, the execution ends with `SilverLoadPartialFailure`; otherwise succeeds.
 
 ## Lambda Functions
 

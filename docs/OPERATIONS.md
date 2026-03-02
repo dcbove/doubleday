@@ -189,18 +189,20 @@ This rebuilds both pitchers and batters catalogs for the given season.
 
 ### Invoking the Step Function
 
+Runs the full pipeline for the given dates: bronze download, silver load, dimension load, gold rebuild, and DynamoDB load. Safe to re-run — bronze skips existing files, silver overwrites partitions idempotently, and dimension caches are reused.
+
 ```bash
 aws stepfunctions start-execution \
   --state-machine-arn arn:aws:states:<region>:<account>:stateMachine:doubleday-dev-pipeline \
   --input '{"season": 2024, "game_dates": ["2024-03-01"]}'
 ```
 
-Use `force_download` to re-download files that already exist in S3:
+Multiple dates can be passed in a single execution. Use `force_download` to re-download files that already exist in S3:
 
 ```bash
 aws stepfunctions start-execution \
   --state-machine-arn arn:aws:states:<region>:<account>:stateMachine:doubleday-dev-pipeline \
-  --input '{"season": 2024, "game_dates": ["2024-03-01"], "force_download": true}'
+  --input '{"season": 2024, "game_dates": ["2024-03-01", "2024-03-02"], "force_download": true}'
 ```
 
 ### Backfilling a season

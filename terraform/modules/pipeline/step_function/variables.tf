@@ -47,3 +47,8 @@ variable "dynamodb_load_function_arn" {
   description = "ARN of the DynamoDB load Lambda function"
   type        = string
 }
+
+variable "dimension_load_function_arn" {
+  description = "ARN of the dimension load Lambda function"
+  type        = string
+}
