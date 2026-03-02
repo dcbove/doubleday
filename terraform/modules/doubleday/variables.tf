@@ -54,12 +54,20 @@ variable "enable_test_client" {
   default     = false
 }
 
+variable "enable_stripe" {
+  description = "Whether to create Stripe integration resources (EventBridge, checkout, portal)"
+  type        = bool
+  default     = true
+}
+
 variable "stripe_price_id" {
   description = "Stripe Price ID for the subscription plan"
   type        = string
+  default     = ""
 }
 
 variable "stripe_event_source_name" {
   description = "Stripe EventBridge partner event source name"
   type        = string
+  default     = ""
 }

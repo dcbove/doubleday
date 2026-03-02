@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { View, Text, Pressable, Image } from "react-native";
 import { router } from "expo-router";
 import useAuth from "../auth/useAuth";
@@ -6,25 +6,22 @@ import useAuth from "../auth/useAuth";
 export default function Navbar() {
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef(null);
-
-  const closeMenu = useCallback(() => setMenuOpen(false), []);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-
-    function handleClick(event) {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setMenuOpen(false);
-      }
-    }
-
-    document.addEventListener("click", handleClick);
-    return () => document.removeEventListener("click", handleClick);
-  }, [menuOpen]);
 
   return (
     <View className="border-b border-gray-200 bg-white" style={{ zIndex: 50 }}>
+      {menuOpen && (
+        <Pressable
+          onPress={() => setMenuOpen(false)}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 40,
+          }}
+        />
+      )}
       <View
         className="mx-auto flex w-full max-w-7xl flex-row items-center justify-between px-4 py-3 sm:px-6 lg:px-8"
         style={{ overflow: "visible" }}
@@ -38,7 +35,7 @@ export default function Navbar() {
           </Pressable>
         </View>
         {user && (
-          <View ref={menuRef} style={{ position: "relative", overflow: "visible" }}>
+          <View style={{ position: "relative", overflow: "visible", zIndex: 50 }}>
             <Pressable
               className="flex-row items-center gap-2 rounded-md px-2 py-1.5 active:bg-gray-100"
               onPress={() => setMenuOpen((prev) => !prev)}
@@ -57,73 +54,77 @@ export default function Navbar() {
             </Pressable>
 
             {menuOpen && (
-              <div
+              <View
                 style={{
                   position: "absolute",
-                  right: 0,
+                  left: 0,
                   top: "100%",
                   marginTop: 4,
                   width: 192,
                   backgroundColor: "white",
                   borderRadius: 8,
-                  border: "1px solid #e5e7eb",
-                  boxShadow: "0 4px 6px -1px rgba(0,0,0,.1)",
-                  paddingTop: 4,
-                  paddingBottom: 4,
+                  borderWidth: 1,
+                  borderColor: "#e5e7eb",
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 6,
+                  elevation: 8,
+                  paddingVertical: 4,
                   zIndex: 50,
                 }}
               >
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => {
-                    closeMenu();
+                <Pressable
+                  onPress={() => {
+                    setMenuOpen(false);
                     router.push("/subscription");
                   }}
-                  style={{
-                    padding: "8px 16px",
-                    cursor: "pointer",
-                    fontSize: 14,
-                    color: "#374151",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.backgroundColor = "#f3f4f6")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.backgroundColor = "transparent")
-                  }
                 >
-                  Subscription
-                </div>
-                <div
+                  {({ pressed }) => (
+                    <Text
+                      style={{
+                        paddingHorizontal: 16,
+                        paddingVertical: 8,
+                        fontSize: 14,
+                        color: "#374151",
+
+                        backgroundColor: pressed ? "#f3f4f6" : "transparent",
+                      }}
+                    >
+                      Subscription
+                    </Text>
+                  )}
+                </Pressable>
+                <View
                   style={{
-                    margin: "4px 12px",
-                    borderBottom: "1px solid #f3f4f6",
+                    marginHorizontal: 12,
+                    marginVertical: 4,
+                    borderBottomWidth: 1,
+                    borderBottomColor: "#f3f4f6",
                   }}
                 />
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => {
-                    closeMenu();
+                <Pressable
+                  onPress={() => {
+                    setMenuOpen(false);
                     logout();
                   }}
-                  style={{
-                    padding: "8px 16px",
-                    cursor: "pointer",
-                    fontSize: 14,
-                    color: "#374151",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.backgroundColor = "#f3f4f6")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.backgroundColor = "transparent")
-                  }
                 >
-                  Sign out
-                </div>
-              </div>
+                  {({ pressed }) => (
+                    <Text
+                      style={{
+                        paddingHorizontal: 16,
+                        paddingVertical: 8,
+                        fontSize: 14,
+                        color: "#374151",
+
+                        backgroundColor: pressed ? "#f3f4f6" : "transparent",
+                      }}
+                    >
+                      Sign out
+                    </Text>
+                  )}
+                </Pressable>
+              </View>
             )}
           </View>
         )}

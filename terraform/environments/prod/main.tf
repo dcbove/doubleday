@@ -21,6 +21,7 @@ module "doubleday" {
   api_domain_name       = var.api_domain_name
   frontend_domain_name  = var.frontend_domain_name
   hosted_zone_name      = var.hosted_zone_name
+  enable_stripe            = var.enable_stripe
   stripe_price_id          = var.stripe_price_id
   stripe_event_source_name = var.stripe_event_source_name
 }
