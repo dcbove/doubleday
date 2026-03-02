@@ -18,6 +18,7 @@ metrics = Metrics()
 
 SERVING_TABLE_NAME = os.environ["SERVING_TABLE_NAME"]
 ENTITLEMENTS_TABLE_NAME = os.environ["ENTITLEMENTS_TABLE_NAME"]
+REQUIRE_SUBSCRIPTION = os.environ.get("REQUIRE_SUBSCRIPTION", "true").lower() == "true"
 
 CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
@@ -39,10 +40,11 @@ def _error_response(status_code: int, message: str) -> dict[str, Any]:
 @metrics.log_metrics
 def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """Handle GET /pitchers/{pitcher_id}/neighbors requests."""
-    principal_id = event.get("requestContext", {}).get("authorizer", {}).get("principalId")
-    entitlements_table = dynamodb.Table(ENTITLEMENTS_TABLE_NAME)
-    if not is_active(check_subscription(entitlements_table, principal_id)):
-        return _error_response(403, "Active subscription required")
+    if REQUIRE_SUBSCRIPTION:
+        principal_id = event.get("requestContext", {}).get("authorizer", {}).get("principalId")
+        entitlements_table = dynamodb.Table(ENTITLEMENTS_TABLE_NAME)
+        if not is_active(check_subscription(entitlements_table, principal_id)):
+            return _error_response(403, "Active subscription required")
 
     path_params = event.get("pathParameters") or {}
     query_params = event.get("queryStringParameters") or {}
