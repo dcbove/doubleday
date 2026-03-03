@@ -9,13 +9,10 @@ SEASON_END="${YEAR}-11-30"
 
 # Generate all dates in the range
 dates=()
-current=$(date -j -f "%Y-%m-%d" "$SEASON_START" +%s)
-end=$(date -j -f "%Y-%m-%d" "$SEASON_END" +%s)
-day=86400
-
-while [ "$current" -le "$end" ]; do
-  dates+=("\"$(date -j -f "%s" "$current" +%Y-%m-%d)\"")
-  current=$((current + day))
+current="$SEASON_START"
+while [[ "$current" < "$SEASON_END" || "$current" == "$SEASON_END" ]]; do
+  dates+=("\"${current}\"")
+  current=$(date -j -v+1d -f "%Y-%m-%d" "$current" +%Y-%m-%d)
 done
 
 game_dates=$(IFS=,; echo "${dates[*]}")

@@ -19,12 +19,9 @@ export default function SimilarPitchersList({
     if (!neighbors || !catalog) return [];
     return neighbors.map((n) => {
       const player = catalog.players.find(
-        (p) => p.id === n.neighbor_pitcher,
+        (p) => p.player_id === n.neighbor_pitcher,
       );
-      const team = player
-        ? catalog.teams[String(player.team_season_id)]
-        : null;
-      return { ...n, player, team };
+      return { ...n, player };
     });
   }, [neighbors, catalog]);
 
@@ -71,14 +68,14 @@ export default function SimilarPitchersList({
                     numberOfLines={1}
                   >
                     {row.player
-                      ? `${row.player.first} ${row.player.last}`
+                      ? `${row.player.first_name} ${row.player.last_name}`
                       : `Pitcher #${row.neighbor_pitcher}`}
                   </Text>
                   <Text
                     className="text-[9px] leading-tight text-gray-500 sm:text-[11px]"
                     numberOfLines={1}
                   >
-                    {row.team?.abbr || "\u2014"} · {row.neighbor_season}
+                    {row.player?.team_season_abbr || "\u2014"} · {row.neighbor_season}
                   </Text>
                 </View>
 

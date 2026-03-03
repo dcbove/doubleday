@@ -71,6 +71,59 @@ class TestRunQuery:
         with pytest.raises(RuntimeError, match="Query FAILED: Syntax error"):
             run_query(client, "BAD SQL", "my_db", "my-bucket")
 
+    @patch("doubleday.util.athena.time.sleep")
+    def test_retries_on_iceberg_commit_error(self, mock_sleep):
+        """ICEBERG_COMMIT_ERROR triggers a retry with backoff."""
+        client = MagicMock()
+        client.start_query_execution.side_effect = [
+            {"QueryExecutionId": "exec-1"},
+            {"QueryExecutionId": "exec-2"},
+        ]
+        client.get_query_execution.side_effect = [
+            {
+                "QueryExecution": {
+                    "Status": {
+                        "State": "FAILED",
+                        "StateChangeReason": "ICEBERG_COMMIT_ERROR: conflicting commit",
+                    }
+                }
+            },
+            {"QueryExecution": {"Status": {"State": "SUCCEEDED"}}},
+        ]
+
+        result = run_query(client, "INSERT INTO t VALUES (1)", "my_db", "my-bucket")
+
+        assert result == "exec-2"
+        assert client.start_query_execution.call_count == 2
+        assert mock_sleep.call_count == 1
+
+    @patch("doubleday.util.athena.time.sleep")
+    def test_retries_on_concurrent_updates_error(self, mock_sleep):
+        """Glue concurrent updates error triggers a retry."""
+        client = MagicMock()
+        client.start_query_execution.side_effect = [
+            {"QueryExecutionId": "exec-1"},
+            {"QueryExecutionId": "exec-2"},
+        ]
+        client.get_query_execution.side_effect = [
+            {
+                "QueryExecution": {
+                    "Status": {
+                        "State": "FAILED",
+                        "StateChangeReason": (
+                            "GENERIC_INTERNAL_ERROR: Failed to commit" " to Glue table due to concurrent updates"
+                        ),
+                    }
+                }
+            },
+            {"QueryExecution": {"Status": {"State": "SUCCEEDED"}}},
+        ]
+
+        result = run_query(client, "INSERT INTO t VALUES (1)", "my_db", "my-bucket")
+
+        assert result == "exec-2"
+        assert client.start_query_execution.call_count == 2
+
     def test_raises_on_cancelled_query(self):
         """Cancelled query raises RuntimeError."""
         client = MagicMock()

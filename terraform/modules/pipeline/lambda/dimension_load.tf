@@ -1,5 +1,5 @@
-resource "aws_iam_role" "catalog_build" {
-  name = "${var.project}-${var.environment}-catalog-build"
+resource "aws_iam_role" "dimension_load" {
+  name = "${var.project}-${var.environment}-dimension-load"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -15,9 +15,9 @@ resource "aws_iam_role" "catalog_build" {
   })
 }
 
-resource "aws_iam_role_policy" "catalog_build" {
-  name = "${var.project}-${var.environment}-catalog-build"
-  role = aws_iam_role.catalog_build.id
+resource "aws_iam_role_policy" "dimension_load" {
+  name = "${var.project}-${var.environment}-dimension-load"
+  role = aws_iam_role.dimension_load.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -61,15 +61,6 @@ resource "aws_iam_role_policy" "catalog_build" {
       {
         Effect = "Allow"
         Action = [
-          "s3:PutObject",
-        ]
-        Resource = [
-          "${var.frontend_bucket_arn}/static/catalogs/*",
-        ]
-      },
-      {
-        Effect = "Allow"
-        Action = [
           "cloudwatch:PutMetricData",
         ]
         Resource = "*"
@@ -87,10 +78,10 @@ resource "aws_iam_role_policy" "catalog_build" {
   })
 }
 
-resource "aws_lambda_function" "catalog_build" {
-  function_name    = "${var.project}-${var.environment}-catalog-build"
-  role             = aws_iam_role.catalog_build.arn
-  handler          = "doubleday.pipeline.catalog_build.handler.handler"
+resource "aws_lambda_function" "dimension_load" {
+  function_name    = "${var.project}-${var.environment}-dimension-load"
+  role             = aws_iam_role.dimension_load.arn
+  handler          = "doubleday.pipeline.dimension_load.handler.handler"
   runtime          = "python3.12"
   timeout          = 900
   memory_size      = 128
@@ -103,9 +94,8 @@ resource "aws_lambda_function" "catalog_build" {
       GLUE_DATABASE                = var.glue_database
       ATHENA_OUTPUT_BUCKET         = var.athena_results_bucket
       LAKEHOUSE_BUCKET             = var.lakehouse_bucket_name
-      FRONTEND_BUCKET              = var.frontend_bucket_name
       POWERTOOLS_METRICS_NAMESPACE = "Doubleday"
-      POWERTOOLS_SERVICE_NAME      = "catalog_build"
+      POWERTOOLS_SERVICE_NAME      = "dimension_load"
     }
   }
 }

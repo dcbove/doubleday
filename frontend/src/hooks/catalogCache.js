@@ -10,18 +10,18 @@ function cacheKey(role, season) {
 }
 
 /**
- * Read cached catalog and etag from AsyncStorage.
+ * Read cached catalog from AsyncStorage.
  *
  * @param {string} role - Player role ("pitchers" or "batters").
  * @param {number} season - Season year.
- * @returns {Promise<{ catalog: object, etag: string } | null>} Cached data or null.
+ * @returns {Promise<{ catalog: object } | null>} Cached data or null.
  */
 export async function readCache(role, season) {
   try {
     const raw = await AsyncStorage.getItem(cacheKey(role, season));
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (!parsed.etag || !parsed.catalog) return null;
+    if (!parsed.catalog) return null;
     return parsed;
   } catch {
     return null;
@@ -29,16 +29,15 @@ export async function readCache(role, season) {
 }
 
 /**
- * Write catalog object and etag to AsyncStorage.
+ * Write catalog object to AsyncStorage.
  *
  * @param {string} role - Player role ("pitchers" or "batters").
  * @param {number} season - Season year.
- * @param {object} catalog - Parsed catalog.json object.
- * @param {string} etag - Etag from the manifest for cache invalidation.
+ * @param {object} catalog - Parsed catalog response object.
  */
-export async function writeCache(role, season, catalog, etag) {
+export async function writeCache(role, season, catalog) {
   await AsyncStorage.setItem(
     cacheKey(role, season),
-    JSON.stringify({ catalog, etag }),
+    JSON.stringify({ catalog }),
   );
 }

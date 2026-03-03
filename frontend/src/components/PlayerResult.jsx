@@ -7,11 +7,9 @@ import { Link } from "expo-router";
  * When `onSelect` is provided, renders a Pressable that calls `onSelect(player)`
  * instead of navigating via Link. Same visual layout either way.
  *
- * @param {{ player: object, teams: object, onSelect?: function }} props
+ * @param {{ player: object, onSelect?: function }} props
  */
-export default function PlayerResult({ player, teams, onSelect }) {
-  const team = teams[String(player.team_season_id)] || {};
-
+export default function PlayerResult({ player, onSelect }) {
   const inner = (
     <View className="flex-row items-center gap-3 px-3 py-2">
       <Image
@@ -21,10 +19,10 @@ export default function PlayerResult({ player, teams, onSelect }) {
       />
       <View className="min-w-0 flex-1">
         <Text className="text-sm font-medium text-gray-900" numberOfLines={1}>
-          {player.first} {player.last}
+          {player.first_name} {player.last_name}
         </Text>
         <Text className="text-xs text-gray-500">
-          {team.abbr || "\u2014"} · {player.pos || "\u2014"} ·{" "}
+          {player.team_season_abbr || "\u2014"} · {player.position || "\u2014"} ·{" "}
           {player.bats}/{player.throws}
         </Text>
       </View>
@@ -43,7 +41,7 @@ export default function PlayerResult({ player, teams, onSelect }) {
   }
 
   return (
-    <Link href={`/pitchers/${player.id}`} asChild>
+    <Link href={`/pitchers/${player.player_id}`} asChild>
       <Pressable className="active:bg-gray-50">{inner}</Pressable>
     </Link>
   );

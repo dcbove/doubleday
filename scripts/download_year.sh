@@ -8,12 +8,10 @@ mkdir -p "$OUTDIR"
 SEASON_START="${YEAR}-08-13"
 SEASON_END="${YEAR}-12-01"
 
-current=$(date -j -f "%Y-%m-%d" "$SEASON_START" +%s)
-end=$(date -j -f "%Y-%m-%d" "$SEASON_END" +%s)
-day=86400
+current="$SEASON_START"
 
-while [ "$current" -lt "$end" ]; do
-  day_date=$(date -j -f "%s" "$current" +%Y-%m-%d)
+while [[ "$current" < "$SEASON_END" ]]; do
+  day_date="$current"
 
   day_dir="${OUTDIR}/season=${YEAR}/game_date=${day_date}"
   mkdir -p "$day_dir"
@@ -30,5 +28,5 @@ while [ "$current" -lt "$end" ]; do
   fi
 
   sleep 2
-  current=$((current + day))
+  current=$(date -j -v+1d -f "%Y-%m-%d" "$current" +%Y-%m-%d)
 done

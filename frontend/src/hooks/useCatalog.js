@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import { Platform } from "react-native";
 import { apiFetch } from "../api/client";
 import { readCache, writeCache } from "./catalogCache";
 import { normalizeQuery } from "./normalizeQuery";
@@ -7,33 +6,18 @@ import { normalizeQuery } from "./normalizeQuery";
 const MAX_RESULTS = 25;
 
 /**
- * Resolve a static asset URL. The manifest returns relative paths like
- * /static/catalogs/.... In production (same-origin) these resolve fine.
- * In local dev, resolve against the CloudFront origin so we don't hit
- * the Expo dev server.
- */
-function resolveStaticUrl(path) {
-  if (!path.startsWith("/")) return path;
-  const cdnOrigin = process.env.EXPO_PUBLIC_CDN_ORIGIN;
-  if (cdnOrigin) return `${cdnOrigin}${path}`;
-  return path;
-}
-
-/**
  * Fetch and cache a player catalog for a given role and season.
  *
- * Fetches the manifest via the authenticated API, checks AsyncStorage for a
- * cached catalog matching the manifest's etag, and downloads the catalog blob
- * from CloudFront if the cache is stale or missing. Exposes a search function
- * for last-name prefix matching.
+ * Calls the catalog API which returns ``{ season, role, players }`` directly.
+ * Caches the response in AsyncStorage for offline/fast reload. Exposes a
+ * search function for last-name prefix matching.
  *
  * @param {string} role - "pitchers" or "batters"
  * @param {number} season - MLB season year (e.g. 2024)
- * @returns {{ catalog: object|null, manifest: object|null, loading: boolean, error: string|null, search: function }}
+ * @returns {{ catalog: object|null, loading: boolean, error: string|null, search: function }}
  */
 export default function useCatalog(role, season) {
   const [catalog, setCatalog] = useState(null);
-  const [manifest, setManifest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -45,31 +29,19 @@ export default function useCatalog(role, season) {
       setError(null);
 
       try {
-        const data = await apiFetch(`/catalogs/${role}?season=${season}`);
-        const manifestData = data.manifest;
-
-        if (cancelled) return;
-        setManifest(manifestData);
-
-        const remoteEtag = manifestData.catalog.etag;
-
+        // Try cache first for instant display
         const cached = await readCache(role, season);
-        if (cached && cached.etag === remoteEtag) {
+        if (cached && !cancelled) {
           setCatalog(cached.catalog);
-          setLoading(false);
-          return;
         }
 
-        const resp = await fetch(resolveStaticUrl(manifestData.catalog.url));
-        if (!resp.ok) {
-          throw new Error(`Catalog fetch failed: ${resp.status}`);
-        }
-        const catalogData = await resp.json();
+        // Always fetch fresh data from the API
+        const data = await apiFetch(`/catalogs/${role}?season=${season}`);
 
         if (cancelled) return;
 
-        await writeCache(role, season, catalogData, remoteEtag);
-        setCatalog(catalogData);
+        await writeCache(role, season, data);
+        setCatalog(data);
       } catch (err) {
         if (!cancelled) {
           setError(err.message || "Failed to load catalog");
@@ -99,5 +71,5 @@ export default function useCatalog(role, season) {
     [catalog],
   );
 
-  return { catalog, manifest, loading, error, search };
+  return { catalog, loading, error, search };
 }

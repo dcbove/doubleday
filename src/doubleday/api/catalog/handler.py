@@ -9,13 +9,13 @@ import boto3
 from aws_lambda_powertools import Logger, Metrics
 from aws_lambda_powertools.metrics import MetricUnit
 
-from doubleday.api.catalog.query import get_manifest
+from doubleday.api.catalog.query import get_catalog
 
-s3 = boto3.client("s3")
+dynamodb = boto3.resource("dynamodb")
 logger = Logger()
 metrics = Metrics()
 
-FRONTEND_BUCKET = os.environ["FRONTEND_BUCKET"]
+SERVING_TABLE_NAME = os.environ["SERVING_TABLE_NAME"]
 
 VALID_ROLES = {"pitchers", "batters"}
 
@@ -61,12 +61,10 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     if not (1000 <= season <= 9999):
         return _error_response(400, "season must be a 4-digit year")
 
-    try:
-        result = get_manifest(s3, FRONTEND_BUCKET, season, role)
-    except FileNotFoundError:
-        return _error_response(404, f"No catalog found for {role} season {season}")
+    table = dynamodb.Table(SERVING_TABLE_NAME)
+    result = get_catalog(table, season, role)
 
-    metrics.add_metric(name="ManifestServed", unit=MetricUnit.Count, value=1)
+    metrics.add_metric(name="PlayersReturned", unit=MetricUnit.Count, value=len(result.players))
 
     return {
         "statusCode": 200,

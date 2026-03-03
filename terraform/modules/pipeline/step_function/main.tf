@@ -32,8 +32,8 @@ resource "aws_iam_role_policy" "pipeline" {
           var.gold_load_function_arn,
           var.clear_staging_function_arn,
           var.check_failures_function_arn,
-          var.catalog_build_function_arn,
           var.dynamodb_load_function_arn,
+          var.dimension_load_function_arn,
         ]
       },
       {
@@ -70,7 +70,7 @@ resource "aws_sfn_state_machine" "pipeline" {
   }
 
   definition = jsonencode({
-    Comment = "Doubleday ETL pipeline: validate → bronze → silver → gold → catalog"
+    Comment = "Doubleday ETL pipeline: validate → bronze → silver → dimensions → gold → dynamodb → check"
     StartAt = "ValidateInput"
     States = {
       ValidateInput = {
@@ -177,6 +177,107 @@ resource "aws_sfn_state_machine" "pipeline" {
           }
         ]
         ResultPath = null
+        Next       = "DimensionLoadParallel"
+      }
+
+      DimensionLoadParallel = {
+        Type = "Parallel"
+        Branches = [
+          {
+            StartAt = "DimensionLoadTeams"
+            States = {
+              DimensionLoadTeams = {
+                Type     = "Task"
+                Resource = "arn:aws:states:::lambda:invoke"
+                Parameters = {
+                  FunctionName = var.dimension_load_function_arn
+                  Payload = {
+                    "dimension" = "teams"
+                    "season.$"  = "$.season"
+                  }
+                }
+                ResultPath = "$.dimension_teams_result"
+                End        = true
+              }
+            }
+          },
+          {
+            StartAt = "DimensionLoadVenues"
+            States = {
+              DimensionLoadVenues = {
+                Type     = "Task"
+                Resource = "arn:aws:states:::lambda:invoke"
+                Parameters = {
+                  FunctionName = var.dimension_load_function_arn
+                  Payload = {
+                    "dimension" = "venues"
+                    "season.$"  = "$.season"
+                  }
+                }
+                ResultPath = "$.dimension_venues_result"
+                End        = true
+              }
+            }
+          },
+          {
+            StartAt = "DimensionLoadGames"
+            States = {
+              DimensionLoadGames = {
+                Type     = "Task"
+                Resource = "arn:aws:states:::lambda:invoke"
+                Parameters = {
+                  FunctionName = var.dimension_load_function_arn
+                  Payload = {
+                    "dimension"    = "games"
+                    "season.$"     = "$.season"
+                    "game_dates.$" = "$.game_dates"
+                  }
+                }
+                ResultPath = "$.dimension_games_result"
+                End        = true
+              }
+            }
+          },
+          {
+            StartAt = "DimensionLoadUmpires"
+            States = {
+              DimensionLoadUmpires = {
+                Type     = "Task"
+                Resource = "arn:aws:states:::lambda:invoke"
+                Parameters = {
+                  FunctionName = var.dimension_load_function_arn
+                  Payload = {
+                    "dimension"    = "umpires"
+                    "season.$"     = "$.season"
+                    "game_dates.$" = "$.game_dates"
+                  }
+                }
+                ResultPath = "$.dimension_umpires_result"
+                End        = true
+              }
+            }
+          },
+          {
+            StartAt = "DimensionLoadPlayers"
+            States = {
+              DimensionLoadPlayers = {
+                Type     = "Task"
+                Resource = "arn:aws:states:::lambda:invoke"
+                Parameters = {
+                  FunctionName = var.dimension_load_function_arn
+                  Payload = {
+                    "dimension"    = "players"
+                    "season.$"     = "$.season"
+                    "game_dates.$" = "$.game_dates"
+                  }
+                }
+                ResultPath = "$.dimension_players_result"
+                End        = true
+              }
+            }
+          }
+        ]
+        ResultPath = null
         Next       = "GoldLoadShapeSeason"
       }
 
@@ -247,6 +348,28 @@ resource "aws_sfn_state_machine" "pipeline" {
           }
         ]
         ResultPath = null
+        Next       = "GoldLoadCatalog"
+      }
+
+      GoldLoadCatalog = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::lambda:invoke"
+        Parameters = {
+          FunctionName = var.gold_load_function_arn
+          Payload = {
+            "table_name" = "gold_catalog"
+            "season.$"   = "$.season"
+          }
+        }
+        Retry = [
+          {
+            ErrorEquals     = ["States.ALL"]
+            IntervalSeconds = 60
+            MaxAttempts     = 3
+            BackoffRate     = 2.0
+          }
+        ]
+        ResultPath = null
         Next       = "DynamoDBLoadParallel"
       }
 
@@ -288,43 +411,26 @@ resource "aws_sfn_state_machine" "pipeline" {
                 End        = true
               }
             }
-          }
-        ]
-        ResultPath = null
-        Next       = "SetCatalogRoles"
-      }
-
-      SetCatalogRoles = {
-        Type       = "Pass"
-        Result     = ["pitchers", "batters"]
-        ResultPath = "$.catalog_roles"
-        Next       = "CatalogBuildMap"
-      }
-
-      CatalogBuildMap = {
-        Type           = "Map"
-        InputPath      = "$"
-        ItemsPath      = "$.catalog_roles"
-        MaxConcurrency = 2
-        Parameters = {
-          "season.$" = "$.season"
-          "role.$"   = "$$.Map.Item.Value"
-        }
-        Iterator = {
-          StartAt = "CatalogBuild"
-          States = {
-            CatalogBuild = {
-              Type     = "Task"
-              Resource = "arn:aws:states:::lambda:invoke"
-              Parameters = {
-                FunctionName = var.catalog_build_function_arn
-                "Payload.$"  = "$"
+          },
+          {
+            StartAt = "DynamoDBLoadCatalog"
+            States = {
+              DynamoDBLoadCatalog = {
+                Type     = "Task"
+                Resource = "arn:aws:states:::lambda:invoke"
+                Parameters = {
+                  FunctionName = var.dynamodb_load_function_arn
+                  Payload = {
+                    "entity_type" = "catalog"
+                    "season.$"    = "$.season"
+                  }
+                }
+                ResultPath = "$.dynamodb_catalog_result"
+                End        = true
               }
-              ResultPath = "$.catalog_result"
-              End        = true
             }
           }
-        }
+        ]
         ResultPath = null
         Next       = "CheckFailures"
       }

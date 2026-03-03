@@ -35,12 +35,20 @@ echo "Step 3/5: gold_repertoire_shape_neighbors"
 invoke "${PREFIX}-gold-load" \
   "{\"table_name\": \"gold_repertoire_shape_neighbors\", \"season\": ${YEAR}, \"format_params\": {\"lambda\": \"0.4\", \"tau\": \"1\"}}"
 
-echo "Step 4/5: dynamodb_load pitches"
+echo "Step 4/7: gold_catalog"
+invoke "${PREFIX}-gold-load" \
+  "{\"table_name\": \"gold_catalog\", \"season\": ${YEAR}}"
+
+echo "Step 5/7: dynamodb_load pitches"
 invoke "${PREFIX}-dynamodb-load" \
   "{\"entity_type\": \"pitches\", \"season\": ${YEAR}}"
 
-echo "Step 5/5: dynamodb_load neighbors"
+echo "Step 6/7: dynamodb_load neighbors"
 invoke "${PREFIX}-dynamodb-load" \
   "{\"entity_type\": \"neighbors\", \"season\": ${YEAR}}"
+
+echo "Step 7/7: dynamodb_load catalog"
+invoke "${PREFIX}-dynamodb-load" \
+  "{\"entity_type\": \"catalog\", \"season\": ${YEAR}}"
 
 echo "=== Done ==="

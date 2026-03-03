@@ -62,8 +62,8 @@ module "step_function" {
   validate_input_function_arn = module.lambda.validate_input_function_arn
   clear_staging_function_arn  = module.lambda.clear_staging_function_arn
   check_failures_function_arn = module.lambda.check_failures_function_arn
-  catalog_build_function_arn  = module.lambda.catalog_build_function_arn
   dynamodb_load_function_arn  = module.lambda.dynamodb_load_function_arn
+  dimension_load_function_arn = module.lambda.dimension_load_function_arn
 }
 
 module "schedule" {

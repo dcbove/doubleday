@@ -58,16 +58,6 @@ output "check_failures_function_arn" {
   value       = aws_lambda_function.check_failures.arn
 }
 
-output "catalog_build_function_name" {
-  description = "Name of the catalog build Lambda function"
-  value       = aws_lambda_function.catalog_build.function_name
-}
-
-output "catalog_build_function_arn" {
-  description = "ARN of the catalog build Lambda function"
-  value       = aws_lambda_function.catalog_build.arn
-}
-
 output "dynamodb_load_function_name" {
   description = "Name of the DynamoDB load Lambda function"
   value       = aws_lambda_function.dynamodb_load.function_name
@@ -76,4 +66,14 @@ output "dynamodb_load_function_name" {
 output "dynamodb_load_function_arn" {
   description = "ARN of the DynamoDB load Lambda function"
   value       = aws_lambda_function.dynamodb_load.arn
+}
+
+output "dimension_load_function_name" {
+  description = "Name of the dimension load Lambda function"
+  value       = aws_lambda_function.dimension_load.function_name
+}
+
+output "dimension_load_function_arn" {
+  description = "ARN of the dimension load Lambda function"
+  value       = aws_lambda_function.dimension_load.arn
 }

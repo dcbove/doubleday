@@ -16,8 +16,11 @@ terraform apply
 | `doubleday` | Composition module — wires all child modules, builds the shared Lambda zip |
 | `pipeline/s3` | Lakehouse S3 bucket |
 | `pipeline/glue` | Glue database, bronze/silver/gold table DDL |
-| `pipeline/lambda` | Pipeline Lambda functions (validate_input, bronze_load, silver_load, gold_load, clear_staging), IAM roles |
+| `pipeline/lambda` | Pipeline Lambda functions (validate_input, bronze_load, silver_load, gold_load, dimension_load, dynamodb_load, clear_staging, check_failures), IAM roles |
 | `pipeline/step_function` | Pipeline Step Function, IAM role, CloudWatch logging |
+| `pipeline/schedule` | EventBridge Scheduler, daily_trigger Lambda (9 AM ET) |
+| `pipeline/dashboard` | CloudWatch dashboard for pipeline metrics |
+| `pipeline/dynamodb` | DynamoDB serving table |
 | `cognito` | Cognito user pool with Google federation, hosted UI |
 | `api` | API Gateway REST API, authorizer Lambda, query Lambda, custom domain, rate limiting |
 | `frontend` | S3 bucket (OAC), CloudFront distribution, CF Function, ACM cert, Route53 |
@@ -25,7 +28,9 @@ terraform apply
 
 Environment files (`dev/main.tf`, `prod/main.tf`) call `module "doubleday"` and pass variables — they never reference child modules directly. All inter-module wiring lives in the composition module.
 
-All Lambda functions (pipeline and API) share a code zip built by the composition module (`doubleday/package.tf`). It bundles the full `doubleday` Python package from `src/` and SQL templates from `sql/pipeline/` and `sql/api/`. Pip dependencies (PyJWT, cryptography) are in a separate Lambda Layer that only rebuilds when dependencies change. Each Lambda points at the same code zip with a different handler entry point.
+All Lambda functions (pipeline and API) share a code zip built by the composition module (`doubleday/package.tf`). It bundles the full `doubleday` Python package from `src/` and SQL templates from `sql/pipeline/`. Pip dependencies (PyJWT, cryptography, stripe) are in a separate Lambda Layer that only rebuilds when dependencies change. Each Lambda points at the same code zip with a different handler entry point.
+
+For fast iterative deploys during development, `scripts/deploy_lambda_code.sh` bypasses Terraform to push code changes directly — see [OPERATIONS.md](OPERATIONS.md#fast-lambda-code-deploy).
 
 Each API endpoint is a self-contained `.tf` file in the `api` module containing its Lambda function, IAM role, API Gateway resources, and CORS configuration.
 

@@ -69,3 +69,20 @@ class TestGoldLoad:
 
         assert result["records_inserted"] > 0
         assert result["table_name"] == "gold_repertoire_shape_neighbors"
+
+    def test_loads_catalog(self):
+        """Load the gold_catalog table and verify rows are inserted.
+
+        Depends on silver_pitches, silver_players, and silver_teams data
+        being present for the test season.
+        """
+        result = invoke_lambda(
+            "doubleday-dev-gold-load",
+            {
+                "table_name": "gold_catalog",
+                "season": SEASON,
+            },
+        )
+
+        assert result["records_inserted"] > 0
+        assert result["table_name"] == "gold_catalog"

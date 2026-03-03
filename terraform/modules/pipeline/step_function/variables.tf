@@ -38,12 +38,12 @@ variable "check_failures_function_arn" {
   type        = string
 }
 
-variable "catalog_build_function_arn" {
-  description = "ARN of the catalog build Lambda function"
+variable "dynamodb_load_function_arn" {
+  description = "ARN of the DynamoDB load Lambda function"
   type        = string
 }
 
-variable "dynamodb_load_function_arn" {
-  description = "ARN of the DynamoDB load Lambda function"
+variable "dimension_load_function_arn" {
+  description = "ARN of the dimension load Lambda function"
   type        = string
 }
