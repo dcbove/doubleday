@@ -15,7 +15,7 @@ profile_totals AS (
 eligible_profiles AS (
   SELECT pitcher, season, total_pitch_count, pitch_types_count
   FROM profile_totals
-  WHERE total_pitch_count >= 250
+  WHERE total_pitch_count >= 500
 ),
 
 profile_pitch_features AS (

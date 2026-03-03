@@ -38,13 +38,10 @@ invoke "{\"dimension\": \"venues\", \"season\": ${YEAR}}"
 
 echo "Step 3/5: games (generating dates ${SEASON_START} to ${SEASON_END})"
 dates=()
-current=$(date -j -f "%Y-%m-%d" "$SEASON_START" +%s)
-end=$(date -j -f "%Y-%m-%d" "$SEASON_END" +%s)
-day=86400
-
-while [ "$current" -le "$end" ]; do
-  dates+=("\"$(date -j -f "%s" "$current" +%Y-%m-%d)\"")
-  current=$((current + day))
+current="$SEASON_START"
+while [[ "$current" < "$SEASON_END" || "$current" == "$SEASON_END" ]]; do
+  dates+=("\"${current}\"")
+  current=$(date -j -v+1d -f "%Y-%m-%d" "$current" +%Y-%m-%d)
 done
 
 game_dates=$(IFS=,; echo "${dates[*]}")
