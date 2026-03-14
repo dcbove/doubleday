@@ -52,6 +52,12 @@ uv.lock
 *.tfstate.backup
 .terraform.lock.hcl
 
+# Bazel
+bazel-bin
+bazel-out
+bazel-doubleday
+bazel-testlogs
+
 # Builds
 builds/
 

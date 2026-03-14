@@ -1,0 +1,17 @@
+load("@rules_python//python:defs.bzl", "py_library")
+load("//bazel:lambda.bzl", "lambda_zip")
+
+py_library(
+    name = "lib",
+    srcs = glob(["*.py"]),
+    deps = [
+        "//src/doubleday:_pkg",
+        "//src/doubleday/util:athena",
+    ],
+)
+
+lambda_zip(
+    name = "dynamodb_load",
+    deps = [":lib"],
+    sql_data = ["//sql:pipeline_sql"],
+)

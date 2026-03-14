@@ -1,0 +1,5 @@
+filegroup(
+    name = "pipeline_sql",
+    srcs = glob(["pipeline/*.sql"]),
+    visibility = ["//src/doubleday:__subpackages__"],
+)

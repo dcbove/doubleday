@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Fast Lambda code deploy — bypasses Terraform to push code in seconds.
 #
-# Builds the shared Lambda package, uploads to S3 with a content hash,
-# then updates one or more Lambda functions to point at the new artifact.
+# Builds per-Lambda zips with Bazel, uploads each to S3 with a content hash,
+# then updates the Lambda function to point at the new artifact.
 #
 # Why this is faster than Terraform:
 # Terraform waits for each Lambda update to stabilize (Pending → Active),
 # which takes ~10-30s per function and runs mostly in series due to AWS
 # API throttling. This script fires update-function-code calls without
-# waiting for stabilization, so all ~18 functions update in parallel.
+# waiting for stabilization, so all functions update in parallel.
 #
 # Usage:
 #   ./scripts/deploy_lambda_code.sh <function-name> [function-name...]
@@ -43,9 +43,19 @@ ALL_FUNCTIONS=(
   doubleday-dev-api-stripe-events
 )
 
+# Map function names to per-Lambda zip names in builds/lambdas/.
+function_to_zip() {
+  local fn="$1"
+  # Strip "doubleday-dev-" or "doubleday-prod-" prefix, then "api-" if present.
+  local name="${fn#doubleday-*-}"
+  name="${name#api-}"
+  # Convert hyphens to underscores to match zip names.
+  echo "${name//-/_}"
+}
+
 # ── Prerequisite checks ──────────────────────────────────────────────
 
-for cmd in aws zip shasum; do
+for cmd in aws bazel shasum; do
   command -v "$cmd" >/dev/null 2>&1 || { echo "ERROR: '$cmd' not found"; exit 1; }
 done
 
@@ -74,42 +84,45 @@ fi
 
 [[ ${#functions[@]} -eq 0 ]] && { echo "ERROR: no functions specified"; exit 1; }
 
-# ── Build package ─────────────────────────────────────────────────────
+# ── Build packages ───────────────────────────────────────────────────
 
-echo "Building Lambda package..."
-bash "$SCRIPT_DIR/build_lambda_package.sh"
+echo "Building Lambda packages with Bazel..."
+cd "$PROJECT_ROOT"
+bazel build //src/doubleday/...
+bash "$SCRIPT_DIR/copy_lambda_zips.sh"
 
-ZIP_PATH="$PROJECT_ROOT/builds/lambda_package.zip"
-(cd "$PROJECT_ROOT/builds/lambda_package" && zip -qr "$ZIP_PATH" .)
-
-HASH=$(shasum -a 256 "$ZIP_PATH" | cut -c1-12)
-ARTIFACT="lambda-package-${HASH}.zip"
-S3_KEY="${S3_PREFIX}/${ARTIFACT}"
-
-echo "Package: $(du -h "$ZIP_PATH" | cut -f1) → s3://${S3_BUCKET}/${S3_KEY}"
-
-# ── Upload to S3 ─────────────────────────────────────────────────────
-
-aws s3 cp "$ZIP_PATH" "s3://${S3_BUCKET}/${S3_KEY}" --quiet
-echo "Upload complete."
-
-# ── Update functions ──────────────────────────────────────────────────
+# ── Upload and update each function ─────────────────────────────────
 
 echo ""
 echo "Updating ${#functions[@]} function(s)..."
 
 pids=()
 for fn in "${functions[@]}"; do
-  echo "  → $fn"
-  aws lambda update-function-code \
-    --function-name "$fn" \
-    --s3-bucket "$S3_BUCKET" \
-    --s3-key "$S3_KEY" \
-    --output text --query 'FunctionName' > /dev/null &
+  zip_name="$(function_to_zip "$fn")"
+  ZIP_PATH="$PROJECT_ROOT/builds/lambdas/${zip_name}.zip"
+
+  if [[ ! -f "$ZIP_PATH" ]]; then
+    echo "  WARNING: no zip for $fn (expected $ZIP_PATH), skipping"
+    continue
+  fi
+
+  HASH=$(shasum -a 256 "$ZIP_PATH" | cut -c1-12)
+  S3_KEY="${S3_PREFIX}/${zip_name}-${HASH}.zip"
+
+  echo "  → $fn ($(du -h "$ZIP_PATH" | cut -f1) → s3://${S3_BUCKET}/${S3_KEY})"
+
+  (
+    aws s3 cp "$ZIP_PATH" "s3://${S3_BUCKET}/${S3_KEY}" --quiet
+    aws lambda update-function-code \
+      --function-name "$fn" \
+      --s3-bucket "$S3_BUCKET" \
+      --s3-key "$S3_KEY" \
+      --output text --query 'FunctionName' > /dev/null
+  ) &
   pids+=($!)
 done
 
-# Wait for all updates to fire (not stabilize — that's the speed win)
+# Wait for all updates to complete.
 failed=0
 for pid in "${pids[@]}"; do
   if ! wait "$pid"; then

@@ -103,8 +103,8 @@ resource "aws_lambda_function" "dynamodb_load" {
   runtime          = "python3.12"
   timeout          = 900
   memory_size      = 256
-  filename         = var.lambda_package_path
-  source_code_hash = var.lambda_package_hash
+  filename         = var.lambda_packages["dynamodb_load"].path
+  source_code_hash = var.lambda_packages["dynamodb_load"].hash
   layers           = [var.powertools_layer_arn, var.deps_layer_arn]
 
   environment {

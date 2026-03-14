@@ -1,0 +1,43 @@
+load("@rules_python//python:defs.bzl", "py_library")
+
+py_library(
+    name = "_pkg",
+    srcs = ["__init__.py"],
+    deps = ["//src/doubleday:_pkg"],
+    visibility = ["//src/doubleday:__subpackages__"],
+)
+
+py_library(
+    name = "athena",
+    srcs = ["athena.py"],
+    deps = [":_pkg"],
+    visibility = ["//src/doubleday:__subpackages__"],
+)
+
+py_library(
+    name = "dynamodb",
+    srcs = ["dynamodb.py"],
+    deps = [":_pkg"],
+    visibility = ["//src/doubleday:__subpackages__"],
+)
+
+py_library(
+    name = "entitlements",
+    srcs = ["entitlements.py"],
+    deps = [":_pkg"],
+    visibility = ["//src/doubleday:__subpackages__"],
+)
+
+py_library(
+    name = "mlb",
+    srcs = ["mlb.py"],
+    deps = [":_pkg"],
+    visibility = ["//src/doubleday:__subpackages__"],
+)
+
+py_library(
+    name = "sql",
+    srcs = ["sql.py"],
+    deps = [":_pkg"],
+    visibility = ["//src/doubleday:__subpackages__"],
+)

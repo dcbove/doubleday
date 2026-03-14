@@ -1,0 +1,18 @@
+load("@rules_python//python:defs.bzl", "py_library")
+load("//bazel:lambda.bzl", "lambda_zip")
+
+py_library(
+    name = "lib",
+    srcs = glob(["*.py"]),
+    deps = [
+        "//src/doubleday:_pkg",
+        "//src/doubleday/util:athena",
+        "//src/doubleday/util:mlb",
+        "//src/doubleday/util:sql",
+    ],
+)
+
+lambda_zip(
+    name = "dimension_load",
+    deps = [":lib"],
+)

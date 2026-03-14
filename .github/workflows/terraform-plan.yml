@@ -8,6 +8,10 @@ on:
       - "sql/**"
       - "frontend/**"
       - "scripts/**"
+      - "bazel/**"
+      - "MODULE.bazel"
+      - ".bazelrc"
+      - "**/BUILD.bazel"
 
 permissions:
   id-token: write
@@ -58,8 +62,17 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-east-1
 
-      - name: Build Lambda package
-        run: ./scripts/build_lambda_package.sh
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.14.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+
+      - name: Build Lambda packages
+        run: |
+          bazel build //src/doubleday/...
+          ./scripts/copy_lambda_zips.sh
 
       - name: Terraform Init
         working-directory: terraform/environments/dev
@@ -121,8 +134,17 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-east-1
 
-      - name: Build Lambda package
-        run: ./scripts/build_lambda_package.sh
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.14.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+
+      - name: Build Lambda packages
+        run: |
+          bazel build //src/doubleday/...
+          ./scripts/copy_lambda_zips.sh
 
       - name: Terraform Init
         working-directory: terraform/environments/prod
