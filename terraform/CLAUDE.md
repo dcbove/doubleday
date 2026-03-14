@@ -16,20 +16,21 @@ When adding permissions for a new AWS resource type, update `modules/oidc/main.t
 
 ## Lambda Packaging (`modules/doubleday/package.tf`)
 
-Two build artifacts, both in the project root `builds/` directory (gitignored):
+Two build artifact types, both in the project root `builds/` directory (gitignored):
 
-**Code zip** (`builds/lambda_package.zip`) — built by `scripts/build_lambda_package.sh`:
-- All Python source (`src/doubleday/**/*.py`)
-- Pipeline SQL templates (`sql/pipeline/*.sql` → `doubleday/sql/pipeline/`)
-- API SQL templates (`sql/api/*.sql` → `doubleday/sql/api/`)
-- Rebuilds when source or SQL files change (fast — no network, just file copies)
+**Per-Lambda code zips** (`builds/lambdas/<name>.zip`) — built by Bazel:
+- `bazel build //src/doubleday/...` builds 17 per-Lambda zips, each containing only the handler's transitive Python dependencies + SQL templates (if needed)
+- `scripts/copy_lambda_zips.sh` copies from `bazel-bin/` to `builds/lambdas/`
+- BUILD files (`src/doubleday/**/BUILD.bazel`) define the dependency graph; Bazel only rebuilds zips whose transitive deps changed
+- `package.tf` defines `local.lambda_packages` map: each Lambda name maps to `{path, hash}` computed via `filebase64sha256`
+- Passed as `lambda_packages` variable (type `map(object({path=string, hash=string}))`) to child modules; each `aws_lambda_function` references `var.lambda_packages["<name>"].path` and `.hash`
 
 **Deps layer** (`builds/lambda_layer.zip`) — built by `scripts/build_lambda_layer.sh`:
-- Pip dependencies (PyJWT, cryptography) built for `manylinux2014_x86_64`
+- Pip dependencies (PyJWT, cryptography, stripe) built for `manylinux2014_x86_64`
 - Published as `aws_lambda_layer_version.deps` and attached to all Lambda functions
-- Rebuilds only when `pyproject.toml` changes (rare)
+- Rebuilds only when the build script changes (rare)
 
-The code zip is passed as `lambda_package_path` / `lambda_package_hash` variables to `module.lambda` (pipeline), `module.api`, and `module.schedule`. The layer ARN is passed as `deps_layer_arn`.
+The `lambda_packages` map and `deps_layer_arn` are passed to `module.lambda` (pipeline), `module.api`, and `module.schedule`.
 
 ## API Module: Self-Contained Endpoints (`modules/api/`)
 

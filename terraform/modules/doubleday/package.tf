@@ -1,29 +1,23 @@
 locals {
   project_root = "${path.module}/../../.."
-}
+  lambda_dir   = "${local.project_root}/builds/lambdas"
 
-# --- Lambda code package (source + SQL only, no pip deps) ---
-
-resource "null_resource" "lambda_package_build" {
-  triggers = {
-    src_hash      = sha1(join("", [for f in sort(fileset("${local.project_root}/src", "doubleday/**/*.py")) : filemd5("${local.project_root}/src/${f}")]))
-    sql_pipe_hash = sha1(join("", [for f in sort(fileset("${local.project_root}/sql/pipeline", "*.sql")) : filemd5("${local.project_root}/sql/pipeline/${f}")]))
+  # Per-Lambda zips built by Bazel (bazel build //src/doubleday/... + copy_lambda_zips.sh).
+  lambda_packages = {
+    for name in [
+      "validate_input", "check_failures", "bronze_load", "silver_load",
+      "clear_staging", "gold_load", "dynamodb_load", "dimension_load",
+      "daily_trigger", "authorizer", "catalog", "query_pitches",
+      "query_neighbors", "create_checkout", "customer_portal",
+      "stripe_events", "subscription_status",
+    ] : name => {
+      path = "${local.lambda_dir}/${name}.zip"
+      hash = filebase64sha256("${local.lambda_dir}/${name}.zip")
+    }
   }
-
-  provisioner "local-exec" {
-    working_dir = local.project_root
-    command     = "bash scripts/build_lambda_package.sh"
-  }
 }
 
-data "archive_file" "lambda_package" {
-  type        = "zip"
-  source_dir  = "${local.project_root}/builds/lambda_package"
-  output_path = "${local.project_root}/builds/lambda_package.zip"
-  depends_on  = [null_resource.lambda_package_build]
-}
-
-# --- Lambda deps layer (PyJWT + cryptography, rebuilt only on dep changes) ---
+# --- Lambda deps layer (PyJWT + cryptography + stripe, rebuilt only on dep changes) ---
 
 resource "null_resource" "lambda_layer_build" {
   triggers = {

@@ -1,0 +1,7 @@
+# Makes bazel/ a Bazel package so lambda.bzl is loadable.
+
+py_binary(
+    name = "create_lambda_zip",
+    srcs = ["create_lambda_zip.py"],
+    visibility = ["//visibility:public"],
+)

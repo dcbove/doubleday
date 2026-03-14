@@ -135,8 +135,8 @@ resource "aws_lambda_function" "subscription_status" {
   runtime          = "python3.12"
   timeout          = 30
   memory_size      = 128
-  filename         = var.lambda_package_path
-  source_code_hash = var.lambda_package_hash
+  filename         = var.lambda_packages["subscription_status"].path
+  source_code_hash = var.lambda_packages["subscription_status"].hash
   layers           = [var.powertools_layer_arn, var.deps_layer_arn]
 
   environment {

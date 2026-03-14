@@ -33,14 +33,12 @@ variable "deps_layer_arn" {
   type        = string
 }
 
-variable "lambda_package_path" {
-  description = "Path to the shared Lambda deployment zip"
-  type        = string
-}
-
-variable "lambda_package_hash" {
-  description = "Base64-encoded SHA256 hash of the Lambda deployment zip"
-  type        = string
+variable "lambda_packages" {
+  description = "Map of Lambda name to {path, hash} for per-Lambda zip files"
+  type = map(object({
+    path = string
+    hash = string
+  }))
 }
 
 variable "cognito_user_pool_id" {

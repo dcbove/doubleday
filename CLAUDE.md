@@ -102,7 +102,7 @@ Expo React Native app in `frontend/` targeting iOS, Android, and web from a sing
 - Pipeline SQL templates: `sql/pipeline/` (bundled into Lambda zip as `doubleday/sql/pipeline/`)
 - DDL: `sql/ddl/`
 - Shared utilities: `src/doubleday/util/` (`athena.py`, `entitlements.py`)
-- Lambda package: `terraform/modules/doubleday/package.tf` bundles `src/doubleday/**/*.py` + `sql/pipeline/*.sql` as code zip; pip deps (PyJWT, cryptography, stripe) are in a separate Lambda Layer
+- Lambda packages: Bazel builds per-Lambda zips (`bazel build //src/doubleday/...`); `scripts/copy_lambda_zips.sh` copies to `builds/lambdas/`; `terraform/modules/doubleday/package.tf` references them. Pip deps (PyJWT, cryptography, stripe) are in a separate Lambda Layer
 - API code: `src/doubleday/api/`
 - Pipeline code: `src/doubleday/pipeline/`
 - Frontend routes: `frontend/app/` (Expo Router file-based)

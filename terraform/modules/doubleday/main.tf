@@ -44,8 +44,7 @@ module "lambda" {
   lakehouse_bucket_name = module.s3.lakehouse_bucket_name
   powertools_layer_arn  = var.powertools_layer_arn
   deps_layer_arn        = aws_lambda_layer_version.deps.arn
-  lambda_package_path   = data.archive_file.lambda_package.output_path
-  lambda_package_hash   = data.archive_file.lambda_package.output_base64sha256
+  lambda_packages       = local.lambda_packages
   frontend_bucket_name  = module.frontend.frontend_bucket_name
   frontend_bucket_arn   = module.frontend.frontend_bucket_arn
   serving_table_name    = module.dynamodb.table_name
@@ -71,8 +70,7 @@ module "schedule" {
   project              = var.project
   environment          = var.environment
   state_machine_arn    = module.step_function.state_machine_arn
-  lambda_package_path  = data.archive_file.lambda_package.output_path
-  lambda_package_hash  = data.archive_file.lambda_package.output_base64sha256
+  lambda_packages      = local.lambda_packages
   powertools_layer_arn = var.powertools_layer_arn
   deps_layer_arn       = aws_lambda_layer_version.deps.arn
 }
@@ -104,8 +102,7 @@ module "api" {
   serving_table_arn   = module.dynamodb.table_arn
   powertools_layer_arn = var.powertools_layer_arn
   deps_layer_arn        = aws_lambda_layer_version.deps.arn
-  lambda_package_path   = data.archive_file.lambda_package.output_path
-  lambda_package_hash   = data.archive_file.lambda_package.output_base64sha256
+  lambda_packages       = local.lambda_packages
   cognito_user_pool_id  = module.cognito.user_pool_id
   cognito_user_pool_arn = module.cognito.user_pool_arn
   cognito_client_ids = compact([

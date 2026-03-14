@@ -1,0 +1,13 @@
+load("@rules_python//python:defs.bzl", "py_library")
+load("//bazel:lambda.bzl", "lambda_zip")
+
+py_library(
+    name = "lib",
+    srcs = glob(["*.py"]),
+    deps = ["//src/doubleday/api:_pkg"],
+)
+
+lambda_zip(
+    name = "subscription_status",
+    deps = [":lib"],
+)
