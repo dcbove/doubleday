@@ -99,7 +99,7 @@ See `docs/images/doubleday-iphone.mov` for a full interaction demo.
 
 ## Architecture
 
-``` mermaid
+```mermaid
 flowchart LR
     subgraph Pipeline
         Savant[Baseball Savant] --> Bronze[Bronze]
@@ -110,13 +110,13 @@ flowchart LR
     end
 
     subgraph Serving
-        Gold --> DynamoDB
-        DynamoDB --> API[API Gateway + Lambda]
+        Gold --> DynamoDB[DynamoDB]
+        DynamoDB --> API[API Gateway and Lambda]
     end
 
     subgraph Clients
-        API --> Web[Web (CloudFront + S3)]
-        API --> Mobile[iOS / Android]
+        API --> Web[Web - CloudFront and S3]
+        API --> Mobile[Mobile Apps]
     end
 ```
 
