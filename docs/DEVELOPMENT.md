@@ -116,6 +116,14 @@ Handler code (`handler.py`) is separated from business logic (`pipeline.py` or `
 - **Pipeline Lambdas** (`src/doubleday/pipeline/<name>/`): `handler.py` parses the Step Function event, calls the pipeline, emits Powertools metrics, returns `{statusCode, body}`.
 - **API Lambdas** (`src/doubleday/api/<name>/`): `handler.py` parses API Gateway proxy event, calls the query module, returns `{statusCode, headers, body}` with CORS headers.
 
+### Generating the Mobile Demo GIF
+
+The README embeds a GIF of the mobile app. To regenerate from the source video:
+
+```bash
+ffmpeg -i docs/images/doubleday-iphone.mov -vf "fps=15,scale=320:-1" -loop 0 docs/images/doubleday-iphone.gif
+```
+
 ### Test Pattern
 
 - Unit tests use `MagicMock` for AWS clients and `@patch` for module-level functions

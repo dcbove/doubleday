@@ -76,7 +76,7 @@ A native mobile experience (iOS / Android via Expo) provides the same analysis o
 - Fast API responses via DynamoDB-backed endpoints
 - Shared codebase across web and mobile
 
-See [docs/images/doubleday-iphone.mov](docs/images/doubleday-iphone.mov) for a full interaction demo.
+![Mobile demo](docs/images/doubleday-iphone.gif)
 
 
 ## Key Design Decisions
