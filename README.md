@@ -76,7 +76,7 @@ A native mobile experience (iOS / Android via Expo) provides the same analysis o
 - Fast API responses via DynamoDB-backed endpoints
 - Shared codebase across web and mobile
 
-See `docs/images/doubleday-iphone.mov` for a full interaction demo.
+See [docs/images/doubleday-iphone.mov](docs/images/doubleday-iphone.mov) for a full interaction demo.
 
 
 ## Key Design Decisions
@@ -130,6 +130,8 @@ A Step Function orchestrates the pipeline end-to-end:
 Dimension data (teams, players, games, umpires) is fetched from the MLB
 API and cached in bronze to make backfills cheap and repeatable.
 
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for design rationale (partition overwrite vs MERGE, Standard vs Express Step Functions, etc.).
+
 ## Pipeline
 
 The pipeline follows a strict medallion architecture with full partition
@@ -142,8 +144,9 @@ replacement:
 All transformations are **idempotent at the partition level**.
 
 See:
-- `docs/PIPELINE.md` — Step Function orchestration, Lambda flow, and failure handling  
-- `docs/DATALAKE.md` — Iceberg schema design, partitioning, and table definitions  
+- [`docs/PIPELINE.md`](docs/PIPELINE.md) — Step Function orchestration, Lambda flow, and failure handling
+- [`docs/DATALAKE.md`](docs/DATALAKE.md) — Iceberg schema design, partitioning, and table definitions
+- [`docs/TESTING.md`](docs/TESTING.md) — unit and integration test strategy
 
 ## Scale & Performance
 
@@ -165,7 +168,7 @@ Authenticated REST API serving gold-layer data.
   GET      `/pitchers/{id}/neighbors`   Similar pitchers
   GET      `/catalog`                   Player catalog
 
-See `docs/API.md` for endpoint design and request/response structure.
+See [`docs/API.md`](docs/API.md) for endpoint design and request/response structure, [`docs/openapi.yaml`](docs/openapi.yaml) for the OpenAPI spec, and [`docs/STRIPE.md`](docs/STRIPE.md) for subscription and webhook integration.
 
 ## Frontend
 
@@ -176,6 +179,8 @@ Expo React Native app (iOS, Android, Web):
 -   Side-by-side comparisons
 -   Typeahead search with local caching
 -   Cognito auth with Google federation
+
+See [`docs/RELEASE.md`](docs/RELEASE.md) for iOS build and distribution.
 
 ## Infrastructure
 
@@ -188,6 +193,8 @@ Terraform-managed AWS infrastructure:
 -   CloudFront + S3 frontend
 -   GitHub Actions (OIDC) CI/CD
 
+See [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md) for Terraform modules, CI/CD workflows, and deployment. See [`docs/OPERATIONS.md`](docs/OPERATIONS.md) for operational runbooks.
+
 ## Tech Stack
 
 **Data Platform:** S3, Apache Iceberg, Athena, Glue\
@@ -197,13 +204,20 @@ Terraform-managed AWS infrastructure:
 **Infrastructure:** Terraform, GitHub Actions (OIDC)\
 **Build & Quality:** Bazel, pytest, Ruff, mypy
 
+See [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) for setup, commands, and code standards.
+
 ## Documentation
 
 Detailed design and operational notes:
 
-- `docs/ARCHITECTURE.md` — system structure and execution models  
-- `docs/PIPELINE.md` — ETL orchestration and Lambda workflows  
-- `docs/DATALAKE.md` — table design and Iceberg layout  
-- `docs/API.md` — REST API  
-- `docs/INFRA.md` — AWS + Terraform setup  
-- `docs/TESTING.md` — unit and integration testing strategy  
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system structure and execution models
+- [`docs/PIPELINE.md`](docs/PIPELINE.md) — ETL orchestration and Lambda workflows
+- [`docs/DATALAKE.md`](docs/DATALAKE.md) — table design and Iceberg layout
+- [`docs/API.md`](docs/API.md) — REST API
+- [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md) — AWS + Terraform setup
+- [`docs/OPERATIONS.md`](docs/OPERATIONS.md) — runbook for Lambda invocations and data management
+- [`docs/TESTING.md`](docs/TESTING.md) — unit and integration testing strategy
+- [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) — setup, commands, code standards, project layout
+- [`docs/STRIPE.md`](docs/STRIPE.md) — Stripe integration, subscriptions, webhooks
+- [`docs/RELEASE.md`](docs/RELEASE.md) — iOS release guide (EAS, TestFlight, App Store)
+- [`docs/openapi.yaml`](docs/openapi.yaml) — OpenAPI 3.0 spec
