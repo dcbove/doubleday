@@ -28,7 +28,7 @@ Doubleday provides interactive pitch-level analysis with direct visual compariso
 
 ### Pitch Profile & Movement
 
-![Pitch Profile](docs/images/doubleday-pitcher-page-web.png)
+<img src="docs/images/doubleday-pitcher-page-web.png" alt="Pitch Profile" width="50%">
 
 Each pitcher’s arsenal is visualized in a movement chart:
 
@@ -48,7 +48,7 @@ All values are sourced from gold-layer aggregates and served with low-latency AP
 
 ### Similarity Search
 
-![Similarity](docs/images/doubleday-pitcher-comparison-web.png)
+<img src="docs/images/doubleday-pitcher-comparison-web.png" alt="Similarity" width="50%">
 
 Doubleday computes pitcher similarity based on pitch shape and repertoire characteristics.
 
@@ -76,7 +76,7 @@ A native mobile experience (iOS / Android via Expo) provides the same analysis o
 - Fast API responses via DynamoDB-backed endpoints
 - Shared codebase across web and mobile
 
-![Mobile demo](docs/images/doubleday-iphone.gif)
+<img src="docs/images/doubleday-iphone.gif" alt="Mobile demo" width="50%">
 
 
 ## Key Design Decisions
