@@ -162,11 +162,11 @@ See:
 
 Authenticated REST API serving gold-layer data.
 
-  Method   Path                         Description
-  -------- ---------------------------- -------------------
-  GET      `/pitchers/{id}/pitches`     Pitch-shape stats
-  GET      `/pitchers/{id}/neighbors`   Similar pitchers
-  GET      `/catalog`                   Player catalog
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/pitchers/{id}/pitches` | Pitch-shape stats |
+| GET | `/pitchers/{id}/neighbors` | Similar pitchers |
+| GET | `/catalog` | Player catalog |
 
 See [`docs/API.md`](docs/API.md) for endpoint design and request/response structure, [`docs/openapi.yaml`](docs/openapi.yaml) for the OpenAPI spec, and [`docs/STRIPE.md`](docs/STRIPE.md) for subscription and webhook integration.
 
