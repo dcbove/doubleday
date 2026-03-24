@@ -91,6 +91,7 @@ jobs:
           echo "distribution_id=$(terraform output -raw cloudfront_distribution_id)" >> "$GITHUB_OUTPUT"
           echo "cognito_pool_id=$(terraform output -raw cognito_user_pool_id)" >> "$GITHUB_OUTPUT"
           echo "cognito_client_id=$(terraform output -raw cognito_client_id)" >> "$GITHUB_OUTPUT"
+          echo "frontend_url=$(terraform output -raw frontend_url)" >> "$GITHUB_OUTPUT"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -108,8 +109,8 @@ jobs:
           EXPO_PUBLIC_COGNITO_CLIENT_ID: ${{ steps.tf.outputs.cognito_client_id }}
           EXPO_PUBLIC_COGNITO_DOMAIN: doubleday-prod
           EXPO_PUBLIC_COGNITO_REGION: us-east-1
-          EXPO_PUBLIC_REDIRECT_SIGN_IN: https://doubleday.appleforge.com/callback
-          EXPO_PUBLIC_REDIRECT_SIGN_OUT: https://doubleday.appleforge.com
+          EXPO_PUBLIC_REDIRECT_SIGN_IN: ${{ steps.tf.outputs.frontend_url }}/callback
+          EXPO_PUBLIC_REDIRECT_SIGN_OUT: ${{ steps.tf.outputs.frontend_url }}
         run: npx expo export --platform web
 
       - name: Deploy frontend to S3

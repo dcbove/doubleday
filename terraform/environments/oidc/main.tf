@@ -13,8 +13,8 @@ module "oidc" {
   project               = var.project
   region                = var.region
   github_repo           = "dcbove/doubleday"
-  state_bucket          = "appleforge-terraform-state"
-  lock_table            = "appleforge-terraform-locks"
+  state_bucket          = var.state_bucket
+  lock_table            = var.lock_table
   athena_results_bucket = var.athena_results_bucket
 }
 

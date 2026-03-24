@@ -45,12 +45,14 @@ export default function Navbar() {
                 <Image
                   source={{ uri: user.picture }}
                   className="h-7 w-7 rounded-full"
-                  referrerPolicy="no-referrer"
+                  {...(Platform.OS === "web" ? { referrerPolicy: "no-referrer" } : {})}
                 />
               )}
-              <Text className="hidden text-sm text-gray-600 sm:flex">
-                {user.name}
-              </Text>
+              {Platform.OS === "web" && (
+                <Text className="hidden text-sm text-gray-600 sm:flex">
+                  {user.name}
+                </Text>
+              )}
               <Text className="text-xs text-gray-400">▼</Text>
             </Pressable>
 

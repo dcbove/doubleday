@@ -44,7 +44,6 @@ dmypy.json
 Thumbs.db
 
 # UV
-uv.lock
 
 # Terraform
 .terraform/

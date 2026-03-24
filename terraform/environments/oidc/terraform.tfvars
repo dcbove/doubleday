@@ -1,3 +1,5 @@
 project               = "doubleday"
 region                = "us-east-1"
 athena_results_bucket = "appleforge-athena-query-results"
+state_bucket          = "appleforge-terraform-state"
+lock_table            = "appleforge-terraform-locks"

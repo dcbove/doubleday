@@ -9,7 +9,7 @@ description = "Analysis and processing of pitch-by-pitch MLB data"
 readme = "README.md"
 requires-python = ">=3.12"
 authors = [
-    { name = "Your Name" }
+    { name = "Daniel Bove" }
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
