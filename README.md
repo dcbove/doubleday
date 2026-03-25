@@ -197,7 +197,7 @@ See [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md) for Terraform modules, CI
 
 ## Tech Stack
 
-**Data Platform:** S3, Apache Iceberg, Athena, Glue\
+**Data Platform:** S3, Apache Iceberg, Parquet, Athena, Glue\
 **Orchestration:** Step Functions, Lambda, EventBridge\
 **Serving:** API Gateway, Lambda, DynamoDB, Cognito\
 **Frontend:** Expo (React Native), CloudFront\
